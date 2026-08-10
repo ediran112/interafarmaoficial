@@ -52,7 +52,10 @@ export default function App() {
   }, []);
 
   // Trigger search with loading and real-time backend AI query
-  const handleExecuteSearch = async (term: string) => {
+  const handleExecuteSearch = async (payload: { term: string; drugs?: string[] }) => {
+    const term = payload.term;
+    const drugs = payload.drugs && payload.drugs.length > 0 ? payload.drugs : undefined;
+
     // Cancel any in-flight request from a previous keystroke
     if (searchAbortRef.current) {
       searchAbortRef.current.abort();
@@ -60,7 +63,6 @@ export default function App() {
     const controller = new AbortController();
     searchAbortRef.current = controller;
 
-    setSearchTerm(term);
     setSearchExecutedTerm(term);
     setIsSearchLoading(true);
 
@@ -70,7 +72,7 @@ export default function App() {
       const response = await fetch('/api/search-interactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ searchTerm: term }),
+        body: JSON.stringify(drugs ? { drugs, searchTerm: term } : { searchTerm: term }),
         signal: controller.signal,
       });
 
@@ -82,24 +84,12 @@ export default function App() {
         setLastResponseMs(Date.now() - startTime);
         if (data.results && Array.isArray(data.results) && data.results.length > 0) {
           setInteractions((prev) => {
-            const formattedResults = data.results.map((item: any, idx: number) => ({
+            const incoming: DrugInteraction[] = data.results.map((item: any, idx: number) => ({
               id: item.id || `ai-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
-              drugA: item.drugA || term,
-              drugB: item.drugB || 'Medicamento',
-              synonymsA: item.synonymsA || [term],
-              synonymsB: item.synonymsB || [],
-              severity: item.severity || 'Grave',
-              category: item.category || 'Farmacologia Clínica',
-              effect: item.effect || 'Efeito e risco em análise.',
-              mechanism: item.mechanism || 'Mecanismo farmacológico.',
-              recommendation: item.recommendation || 'Consulte seu médico ou farmacêutico.',
-              alternatives: item.alternatives || 'Consulte um profissional para alternativas.',
-              foodInteractions: item.foodInteractions || 'Não ingerir com bebidas alcoólicas.',
-              affectedOrgans: item.affectedOrgans || ['Fígado']
+              ...item,
             }));
-
-            const existingIds = new Set(prev.map((item) => item.id));
-            const newItems = formattedResults.filter((item: any) => !existingIds.has(item.id));
+            const existingIds = new Set(prev.map((it) => it.id));
+            const newItems = incoming.filter((it) => !existingIds.has(it.id));
             return [...newItems, ...prev];
           });
         }

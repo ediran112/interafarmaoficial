@@ -3,6 +3,13 @@ import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import { INITIAL_30_INTERACTIONS } from '../src/data/interactionsData';
+import {
+  normalizeInput,
+  buildSearchSystemPrompt,
+  buildSearchUserPrompt,
+  buildGeminiSearchPrompt,
+  normalizeResults,
+} from '../src/lib/interactionPrompts';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -162,12 +169,10 @@ app.get(['/api/ai-status', '/ai-status'], (_req, res) => {
 // Real-Time Drug Interactions Search (OpenAI / Gemini / Local Fallback)
 app.post(['/api/search-interactions', '/search-interactions'], async (req, res) => {
   try {
-    const { searchTerm } = req.body;
-    if (!searchTerm || typeof searchTerm !== 'string' || !searchTerm.trim()) {
-      return res.status(400).json({ error: 'Termo de busca é obrigatório.' });
+    const { drugs, freeText, isMultiDrug } = normalizeInput(req.body);
+    if (!freeText && drugs.length === 0) {
+      return res.status(400).json({ error: 'Informe um termo ou lista de medicamentos.' });
     }
-
-    const cleanTerm = searchTerm.trim();
 
     // 1. Try OpenAI if key is present
     const openai = getOpenAIClient();
@@ -175,81 +180,28 @@ app.post(['/api/search-interactions', '/search-interactions'], async (req, res) 
       try {
         let completion;
         let usedModel = 'gpt-4o-mini';
+        const systemMsg = buildSearchSystemPrompt();
+        const userMsg = buildSearchUserPrompt(drugs, freeText);
+
         try {
           completion = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
             response_format: { type: 'json_object' },
             messages: [
-              {
-                role: 'system',
-                content: `Você é uma API de farmacologia clínica da plataforma Interafarma.
-Sua função é gerar um objeto JSON contendo a propriedade "results" com a lista das principais (3 a 6) interações medicamentosas clinicamente relevantes para o termo ou combinação informada.
-
-REGRAS OBRIGATÓRIAS:
-1. Se o termo for um único medicamento, retorne de 3 a 6 interações importantes dele com outros medicamentos.
-2. Se o termo for uma combinação de medicamentos (ex: "hidroxicloroquina e fluoxetina" ou "pode tomar dipirona com ibuprofeno?"), inclua OBRIGATORIAMENTE a interação direta entre os medicamentos citados ("drugA" e "drugB") e depois outras interações relevantes dos fármacos mencionados.
-3. Formato JSON estrito:
-{
-  "results": [
-    {
-      "drugA": "Nome do Medicamento A",
-      "drugB": "Nome do Medicamento B",
-      "synonymsA": ["Sinônimo A"],
-      "synonymsB": ["Sinônimo B"],
-      "severity": "Grave",
-      "category": "Especialidade Médica (ex: Cardiologia, Psiquiatria, Reumatologia)",
-      "effect": "Efeito clínico e risco principal em texto corrido.",
-      "mechanism": "Mecanismo farmacológico de ação em texto corrido.",
-      "recommendation": "Recomendação e conduta médica em texto corrido.",
-      "alternatives": "Alternativas terapêuticas seguras.",
-      "foodInteractions": "Interação com alimentos/bebidas.",
-      "affectedOrgans": ["Coração", "Fígado"]
-    }
-  ]
-}`
-              },
-              {
-                role: 'user',
-                content: `Pesquisar interações clínicas para: "${cleanTerm}"`
-              }
+              { role: 'system', content: systemMsg },
+              { role: 'user', content: userMsg },
             ],
-            temperature: 0.2,
+            temperature: 0.15,
           });
         } catch (miniErr: any) {
-          console.warn('gpt-4o-mini failed, attempting fallback to gpt-3.5-turbo / gpt-4o:', miniErr.message || miniErr);
+          console.warn('gpt-4o-mini failed, fallback to gpt-3.5-turbo:', miniErr.message || miniErr);
           usedModel = 'gpt-3.5-turbo';
           completion = await openai.chat.completions.create({
             model: 'gpt-3.5-turbo',
             response_format: { type: 'json_object' },
             messages: [
-              {
-                role: 'system',
-                content: `Você é uma API de farmacologia clínica da plataforma Interafarma.
-Gere um objeto JSON contendo a propriedade "results" com as principais (3 a 6) interações medicamentosas.
-Formato:
-{
-  "results": [
-    {
-      "drugA": "Medicamento A",
-      "drugB": "Medicamento B",
-      "synonymsA": [],
-      "synonymsB": [],
-      "severity": "Grave",
-      "category": "Farmacologia",
-      "effect": "Efeito",
-      "mechanism": "Mecanismo",
-      "recommendation": "Recomendação",
-      "alternatives": "Alternativas",
-      "foodInteractions": "Alimentos",
-      "affectedOrgans": ["Fígado"]
-    }
-  ]
-}`
-              },
-              {
-                role: 'user',
-                content: `Pesquisar interações para: "${cleanTerm}"`
-              }
+              { role: 'system', content: systemMsg },
+              { role: 'user', content: userMsg },
             ],
             temperature: 0.2,
           });
@@ -257,49 +209,28 @@ Formato:
 
         const rawText = completion.choices[0]?.message?.content?.trim() || '{}';
         const parsed = JSON.parse(rawText);
-        let results = Array.isArray(parsed) ? parsed : (parsed.results || parsed.interactions || parsed.data || []);
-        if (Array.isArray(results) && results.length > 0) {
-          results = results.map((item: any, idx: number) => ({
-            ...item,
-            id: `ai-openai-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`
-          }));
-          return res.json({ results, provider: 'openai', model: usedModel });
+        const rawResults = Array.isArray(parsed) ? parsed : (parsed.results || parsed.interactions || parsed.data || []);
+        const results = normalizeResults(rawResults, 'openai');
+        if (results.length > 0) {
+          return res.json({
+            results,
+            provider: 'openai',
+            model: usedModel,
+            queryDrugs: drugs,
+            queryText: freeText,
+            matrix: isMultiDrug,
+          });
         }
       } catch (openaiErr: any) {
         console.error('OpenAI API call failed in search endpoint:', openaiErr.status || '', openaiErr.message || openaiErr);
       }
     }
 
-    // 2. Try Gemini as primary/fallback AI
+    // 2. Try Gemini as fallback AI
     const ai = getGeminiClient();
     if (ai) {
       try {
-        const prompt = `Você é uma API de farmacologia clínica da plataforma Interafarma.
-Gere um JSON com as principais (3 a 6) interações medicamentosas clinicamente relevantes para o termo ou combinação: "${cleanTerm}".
-
-REGRAS OBRIGATÓRIAS:
-1. Se o termo for uma combinação de 2 ou mais medicamentos (ex: "hidroxicloroquina e fluoxetina" ou "pode tomar X com Y?"), inclua OBRIGATORIAMENTE a interação direta entre os medicamentos citados ("drugA" e "drugB").
-2. Se for um único medicamento, traga de 3 a 6 interações importantes dele.
-3. Saída estritamente JSON (SEM explicações extras e sem marcadores de código fora do JSON).
-
-Formato:
-[
-  {
-    "drugA": "Nome do Medicamento A",
-    "drugB": "Nome do Medicamento B",
-    "synonymsA": [],
-    "synonymsB": [],
-    "severity": "Grave",
-    "category": "Farmacologia Clínica",
-    "effect": "Descrição em texto corrido do efeito e risco principal.",
-    "mechanism": "Mecanismo de ação em texto corrido.",
-    "recommendation": "Recomendação e conduta médica.",
-    "alternatives": "Alternativas terapêuticas.",
-    "foodInteractions": "Interações alimentares.",
-    "affectedOrgans": ["Fígado", "Coração"]
-  }
-]`;
-
+        const prompt = buildGeminiSearchPrompt(drugs, freeText);
         let rawText = '';
         try {
           const response = await ai.models.generateContent({
@@ -317,13 +248,17 @@ Formato:
         }
 
         const cleanedText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
-        let results = JSON.parse(cleanedText);
-        if (Array.isArray(results) && results.length > 0) {
-          results = results.map((item: any, idx: number) => ({
-            ...item,
-            id: `ai-gemini-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`
-          }));
-          return res.json({ results, provider: 'gemini' });
+        const parsed = JSON.parse(cleanedText);
+        const rawResults = Array.isArray(parsed) ? parsed : (parsed.results || parsed.interactions || parsed.data || []);
+        const results = normalizeResults(rawResults, 'gemini');
+        if (results.length > 0) {
+          return res.json({
+            results,
+            provider: 'gemini',
+            queryDrugs: drugs,
+            queryText: freeText,
+            matrix: isMultiDrug,
+          });
         }
       } catch (geminiErr: any) {
         console.warn('Gemini API call failed in serverless function:', geminiErr.message || geminiErr);
@@ -331,11 +266,12 @@ Formato:
     }
 
     // 3. Fallback to local dataset search
-    const localResults = searchLocalInteractions(cleanTerm);
-    return res.json({ results: localResults, provider: 'local' });
+    const localResults = searchLocalInteractions(freeText || drugs.join(' '));
+    return res.json({ results: localResults, provider: 'local', queryDrugs: drugs, queryText: freeText });
   } catch (error: any) {
     console.error('Error in /api/search-interactions:', error);
-    const localResults = searchLocalInteractions(req.body?.searchTerm || '');
+    const { freeText, drugs } = normalizeInput(req.body);
+    const localResults = searchLocalInteractions(freeText || drugs.join(' '));
     return res.json({ results: localResults, provider: 'local', error: error.message });
   }
 });

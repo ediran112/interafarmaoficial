@@ -1,20 +1,27 @@
 import React, { useState } from 'react';
-import { 
-  AlertTriangle, 
-  ShieldAlert, 
-  CheckCircle2, 
-  Info, 
-  Utensils, 
-  Pill, 
-  Activity, 
-  Sparkles, 
-  Bookmark, 
-  Share2, 
-  ChevronDown, 
+import {
+  AlertTriangle,
+  ShieldAlert,
+  CheckCircle2,
+  Info,
+  Utensils,
+  Pill,
+  Activity,
+  Sparkles,
+  Bookmark,
+  Share2,
+  ChevronDown,
   ChevronUp,
   Stethoscope,
   Copy,
-  Printer
+  Printer,
+  Timer,
+  Gauge,
+  Ban,
+  UserRound,
+  ClipboardList,
+  BookOpen,
+  Beaker,
 } from 'lucide-react';
 import { DrugInteraction } from '../types';
 
@@ -91,16 +98,41 @@ Recomendação: ${interaction.recommendation}`;
       <div className="p-5 sm:p-6 pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
           
-          {/* Severity & Category Badge */}
-          <div className="flex items-center gap-2">
+          {/* Severity, Evidence & Category Badges */}
+          <div className="flex items-center gap-2 flex-wrap">
             <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-2xs ${style.badge}`}>
               {style.icon}
               Gravidade {interaction.severity}
             </span>
 
+            {interaction.evidenceLevel && (
+              <span
+                className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 border shadow-2xs ${
+                  interaction.evidenceLevel === 'A'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : interaction.evidenceLevel === 'B'
+                    ? 'bg-lime-100 text-lime-800 border-lime-300'
+                    : interaction.evidenceLevel === 'C'
+                    ? 'bg-amber-100 text-amber-800 border-amber-300'
+                    : 'bg-slate-100 text-slate-700 border-slate-300'
+                }`}
+                title="Nível de evidência científica"
+              >
+                <Gauge className="w-3 h-3" />
+                Evidência {interaction.evidenceLevel}
+              </span>
+            )}
+
             <span className="px-3 py-1 rounded-full bg-white text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs">
               {interaction.category}
             </span>
+
+            {interaction.onset && (
+              <span className="px-2.5 py-1 rounded-full bg-white text-slate-600 text-[11px] font-semibold border border-slate-200 shadow-2xs inline-flex items-center gap-1">
+                <Timer className="w-3 h-3 text-sky-600" />
+                {interaction.onset}
+              </span>
+            )}
           </div>
 
           {/* Action Icons */}
@@ -186,30 +218,110 @@ Recomendação: ${interaction.recommendation}`;
         >
           <span className="flex items-center gap-2">
             <Stethoscope className="w-4 h-4 text-lime-600" />
-            {expanded ? 'Ocultar Informações Adicionais' : 'Ver Mais Informações (Alternativas, Alimentos e Sistemas Afetados)'}
+            {expanded ? 'Ocultar detalhamento clínico' : 'Ver detalhamento clínico completo'}
           </span>
           {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
 
         {expanded && (
-          <div className="mt-3 space-y-3 pt-2 text-xs sm:text-sm text-slate-800 leading-relaxed border-t border-slate-200">
-            <p>
-              <strong className="font-bold text-slate-900">Alternativas Terapêuticas: </strong>
-              {interaction.alternatives}
-            </p>
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 text-xs sm:text-sm text-slate-800 leading-relaxed border-t border-slate-200">
+
+            {interaction.clinicalManagement && (
+              <div className="md:col-span-2 bg-white p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2 text-slate-900 font-black text-[11px] uppercase tracking-wider mb-1.5">
+                  <ClipboardList className="w-4 h-4 text-emerald-600" />
+                  Manejo clínico
+                </div>
+                <p className="text-slate-800">{interaction.clinicalManagement}</p>
+              </div>
+            )}
+
+            {interaction.monitoring && (
+              <div className="bg-white p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2 text-slate-900 font-black text-[11px] uppercase tracking-wider mb-1.5">
+                  <Activity className="w-4 h-4 text-rose-600" />
+                  Monitorização
+                </div>
+                <p className="text-slate-800">{interaction.monitoring}</p>
+              </div>
+            )}
+
+            {interaction.doseAdjustment && (
+              <div className="bg-white p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2 text-slate-900 font-black text-[11px] uppercase tracking-wider mb-1.5">
+                  <Beaker className="w-4 h-4 text-sky-600" />
+                  Ajuste posológico
+                </div>
+                <p className="text-slate-800">{interaction.doseAdjustment}</p>
+              </div>
+            )}
+
+            {interaction.contraindications && (
+              <div className="bg-white p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2 text-slate-900 font-black text-[11px] uppercase tracking-wider mb-1.5">
+                  <Ban className="w-4 h-4 text-rose-700" />
+                  Contraindicações
+                </div>
+                <p className="text-slate-800">{interaction.contraindications}</p>
+              </div>
+            )}
+
+            {interaction.specialPopulations && (
+              <div className="bg-white p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2 text-slate-900 font-black text-[11px] uppercase tracking-wider mb-1.5">
+                  <UserRound className="w-4 h-4 text-indigo-600" />
+                  Populações especiais
+                </div>
+                <p className="text-slate-800">{interaction.specialPopulations}</p>
+              </div>
+            )}
+
+            <div className="bg-white p-3 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-2 text-slate-900 font-black text-[11px] uppercase tracking-wider mb-1.5">
+                <Sparkles className="w-4 h-4 text-lime-600" />
+                Alternativas terapêuticas
+              </div>
+              <p className="text-slate-800">{interaction.alternatives}</p>
+            </div>
 
             {interaction.foodInteractions && (
-              <p>
-                <strong className="font-bold text-slate-900">Interações Alimentares e Bebidas: </strong>
-                {interaction.foodInteractions}
-              </p>
+              <div className="bg-white p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2 text-slate-900 font-black text-[11px] uppercase tracking-wider mb-1.5">
+                  <Utensils className="w-4 h-4 text-amber-600" />
+                  Alimentos e bebidas
+                </div>
+                <p className="text-slate-800">{interaction.foodInteractions}</p>
+              </div>
             )}
 
             {interaction.affectedOrgans && interaction.affectedOrgans.length > 0 && (
-              <p>
-                <strong className="font-bold text-slate-900">Sistemas Orgânicos Afetados: </strong>
-                {interaction.affectedOrgans.join(', ')}.
-              </p>
+              <div className="md:col-span-2 bg-white p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2 text-slate-900 font-black text-[11px] uppercase tracking-wider mb-1.5">
+                  <Stethoscope className="w-4 h-4 text-slate-700" />
+                  Sistemas orgânicos afetados
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {interaction.affectedOrgans.map((o) => (
+                    <span key={o} className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200">
+                      {o}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {interaction.references && interaction.references.length > 0 && (
+              <div className="md:col-span-2 bg-white p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2 text-slate-900 font-black text-[11px] uppercase tracking-wider mb-1.5">
+                  <BookOpen className="w-4 h-4 text-slate-700" />
+                  Referências
+                </div>
+                <ul className="text-[12px] text-slate-700 list-disc list-inside space-y-0.5">
+                  {interaction.references.map((r) => (
+                    <li key={r}>{r}</li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         )}
