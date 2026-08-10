@@ -13,8 +13,8 @@ import {
   normalizeResults,
 } from './src/lib/interactionPrompts';
 
-dotenv.config({ path: '.env.local' });
-dotenv.config();
+dotenv.config({ path: '.env.local', override: true });
+dotenv.config({ override: true });
 
 // Helper function to perform local search on pre-loaded database
 function searchLocalInteractions(term: string) {
