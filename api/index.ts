@@ -4,6 +4,7 @@ import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import { INITIAL_30_INTERACTIONS } from '../src/data/interactionsData';
 
+dotenv.config({ path: '.env.local' });
 dotenv.config();
 
 const app = express();
