@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interafarma - Plataforma de Interações Medicamentosas</title>
+    <script>
+      (function() {
+        try {
+          var _currentFetch = typeof window !== 'undefined' && window.fetch ? window.fetch.bind(window) : null;
+          Object.defineProperty(window, 'fetch', {
+            get: function() {
+              return _currentFetch;
+            },
+            set: function(fn) {
+              _currentFetch = fn;
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e) {
+          try {
+            var _protoFetch = Window.prototype.fetch;
+            var _currentFetchProto = _protoFetch;
+            Object.defineProperty(Window.prototype, 'fetch', {
+              get: function() { return _currentFetchProto; },
+              set: function(fn) { _currentFetchProto = fn; },
+              configurable: true,
+              enumerable: true
+            });
+          } catch (err) {
+            console.warn('Fetch setter patch error:', err);
+          }
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

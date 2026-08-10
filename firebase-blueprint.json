@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "drug_interactions": {
+      "title": "Drug Interactions",
+      "description": "Banco de dados de interações medicamentosas",
+      "properties": {
+        "drugA": { "type": "string" },
+        "drugB": { "type": "string" },
+        "severity": { "type": "string", "enum": ["Grave", "Moderada", "Leve"] },
+        "mechanism": { "type": "string" },
+        "effect": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "alternatives": { "type": "string" },
+        "category": { "type": "string" },
+        "foodInteractions": { "type": "string" }
+      },
+      "required": ["drugA", "drugB", "severity", "effect", "recommendation"]
+    },
+    "users": {
+      "title": "Users",
+      "description": "Perfis de usuários do Interafarma",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "saved_checks": {
+      "title": "Saved Checks",
+      "description": "Consultas e verificações salvas pelos usuários",
+      "properties": {
+        "userId": { "type": "string" },
+        "drugs": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "drugs"]
+    }
+  }
+}

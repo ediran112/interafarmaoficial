@@ -1,0 +1,6 @@
+{
+  "name": "Interafarma",
+  "description": "Sistema interativo de busca e checagem de interações medicamentosas com informações detalhadas de segurança e combinações de medicamentos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
