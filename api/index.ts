@@ -11,8 +11,16 @@ import {
   normalizeResults,
 } from '../src/lib/interactionPrompts';
 
-dotenv.config({ path: '.env.local', override: true });
-dotenv.config({ override: true });
+// In Vercel serverless, env vars come from the platform (process.env).
+// Local .env files are only loaded when not running in the Vercel runtime.
+if (!process.env.VERCEL) {
+  try {
+    dotenv.config({ path: '.env.local', override: true });
+    dotenv.config({ override: true });
+  } catch (e) {
+    console.warn('dotenv load skipped:', (e as any)?.message);
+  }
+}
 
 const app = express();
 app.use(express.json());
@@ -388,4 +396,16 @@ Instruções:
   }
 });
 
-export default app;
+// Vercel serverless expects a (req, res) handler. Express Application is a
+// function (req, res, next) — wrap it so the runtime handler shape matches
+// and any synchronous init errors surface as a 500 instead of a cold-start crash.
+export default function handler(req: any, res: any) {
+  try {
+    return (app as any)(req, res);
+  } catch (err: any) {
+    console.error('Handler dispatch error:', err);
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'Internal error', details: err?.message || String(err) }));
+  }
+}
