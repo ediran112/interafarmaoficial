@@ -53,3 +53,65 @@ export interface AIAdviceResponse {
   disclaimer: string;
   sources?: string[];
 }
+
+// ============================================================================
+// Drug monograph — technical sheet with 4 clinical sections
+// ============================================================================
+
+export interface DosageSection {
+  therapeuticClass: string;
+  regulatoryClass: string;
+  presentations: string[];
+  adultStandard: { indication: string; dose: string }[];
+  pediatric?: string;
+  geriatric?: string;
+  maxDailyDose: string;
+}
+
+export interface RenalAdjustmentRow {
+  crcl: string;
+  adjustment: string;
+}
+
+export interface AdjustmentSection {
+  renal: RenalAdjustmentRow[];
+  hepatic: string;
+  pregnancy: string;
+  lactation: string;
+}
+
+export interface OnsetByRoute {
+  route: string;
+  onset: string;
+}
+
+export interface PharmacokineticsSection {
+  onsetByRoute: OnsetByRoute[];
+  halfLife: string;
+  duration: string;
+  metabolism: string;
+  proteinBinding: string;
+  excretion: string;
+}
+
+export interface DilutionRow {
+  solution: string;
+  volume: string;
+  finalConcentration: string;
+}
+
+export interface AdministrationSection {
+  routes: string[];
+  dilution: DilutionRow[];
+  oralCare: string;
+  stability: string;
+}
+
+export interface DrugMonograph {
+  drug: string;
+  synonyms?: string[];
+  dosage: DosageSection;
+  adjustment: AdjustmentSection;
+  pharmacokinetics: PharmacokineticsSection;
+  administration: AdministrationSection;
+}

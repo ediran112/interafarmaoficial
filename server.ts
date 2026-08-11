@@ -11,6 +11,9 @@ import {
   buildSearchUserPrompt,
   buildGeminiSearchPrompt,
   normalizeResults,
+  buildMonographSystemPrompt,
+  buildMonographUserPrompt,
+  normalizeMonograph,
 } from './src/lib/interactionPrompts';
 
 dotenv.config({ path: '.env.local', override: true });
@@ -278,6 +281,63 @@ async function startServer() {
       const { freeText, drugs } = normalizeInput(req.body);
       const localResults = searchLocalInteractions(freeText || drugs.join(' '));
       return res.json({ results: localResults, provider: 'local', error: error.message });
+    }
+  });
+
+  // Drug Monograph (technical sheet with 4 sections)
+  app.post('/api/drug-monograph', async (req, res) => {
+    try {
+      const drug = typeof req.body?.drug === 'string' ? req.body.drug.trim() : '';
+      if (!drug) {
+        return res.status(400).json({ error: 'Informe o nome do medicamento.' });
+      }
+
+      const openai = getOpenAIClient();
+      if (openai) {
+        try {
+          let completion;
+          let usedModel = 'gpt-4o-mini';
+          const systemMsg = buildMonographSystemPrompt();
+          const userMsg = buildMonographUserPrompt(drug);
+          try {
+            completion = await openai.chat.completions.create({
+              model: 'gpt-4o-mini',
+              response_format: { type: 'json_object' },
+              messages: [
+                { role: 'system', content: systemMsg },
+                { role: 'user', content: userMsg },
+              ],
+              temperature: 0.1,
+              max_tokens: 4096,
+            });
+          } catch (miniErr: any) {
+            console.warn('gpt-4o-mini monograph failed, fallback to gpt-3.5-turbo:', miniErr.message);
+            usedModel = 'gpt-3.5-turbo';
+            completion = await openai.chat.completions.create({
+              model: 'gpt-3.5-turbo',
+              response_format: { type: 'json_object' },
+              messages: [
+                { role: 'system', content: systemMsg },
+                { role: 'user', content: userMsg },
+              ],
+              temperature: 0.2,
+            });
+          }
+          const rawText = completion.choices[0]?.message?.content?.trim() || '{}';
+          const parsed = JSON.parse(rawText);
+          const monograph = normalizeMonograph(parsed);
+          if (monograph) {
+            return res.json({ monograph, provider: 'openai', model: usedModel, drug });
+          }
+        } catch (openaiErr: any) {
+          console.error('OpenAI monograph error:', openaiErr.status || '', openaiErr.message || openaiErr);
+        }
+      }
+
+      return res.status(503).json({ error: 'Monografia indisponível no momento.', drug });
+    } catch (error: any) {
+      console.error('Error in /api/drug-monograph:', error);
+      return res.status(500).json({ error: 'Erro ao gerar monografia.', details: error.message });
     }
   });
 

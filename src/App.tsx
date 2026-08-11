@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from './lib/firebase';
-import { DrugInteraction, SavedCheck, UserProfile } from './types';
+import { DrugInteraction, SavedCheck, UserProfile, DrugMonograph as DrugMonographType } from './types';
 import { 
   seedInitialInteractionsIfNeeded, 
   searchInteractions, 
@@ -18,6 +18,7 @@ import { AuthModal } from './components/AuthModal';
 import { AIAdvisorModal } from './components/AIAdvisorModal';
 import { SavedChecks } from './components/SavedChecks';
 import { SafetyGuide } from './components/SafetyGuide';
+import { DrugMonograph } from './components/DrugMonograph';
 import { Pill, AlertCircle, RefreshCw, Search, Zap } from 'lucide-react';
 
 export default function App() {
@@ -31,6 +32,51 @@ export default function App() {
   const [severityFilter, setSeverityFilter] = useState('Todos');
   const [lastResponseMs, setLastResponseMs] = useState<number | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
+
+  // Monograph state — only fetched when the query is a single drug
+  const [monograph, setMonograph] = useState<DrugMonographType | null>(null);
+  const [isMonographLoading, setIsMonographLoading] = useState(false);
+  const monographAbortRef = useRef<AbortController | null>(null);
+  const [monographTab, setMonographTab] = useState<'interactions' | 'monograph'>('monograph');
+
+  const fetchMonograph = async (drug: string) => {
+    if (monographAbortRef.current) monographAbortRef.current.abort();
+    const controller = new AbortController();
+    monographAbortRef.current = controller;
+    setMonograph(null);
+    setIsMonographLoading(true);
+    try {
+      const res = await fetch('/api/drug-monograph', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ drug }),
+        signal: controller.signal,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.monograph) setMonograph(data.monograph);
+      }
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') console.warn('Monograph fetch failed:', err);
+    } finally {
+      if (monographAbortRef.current === controller) {
+        setIsMonographLoading(false);
+        monographAbortRef.current = null;
+      }
+    }
+  };
+
+  // Heuristic: query is a single drug when either drugs.length === 1
+  // OR the free text has no separators, no question marks, and <= 3 words
+  const shouldFetchMonograph = (drugs: string[] | undefined, term: string): string | null => {
+    if (drugs && drugs.length === 1) return drugs[0];
+    if (drugs && drugs.length > 1) return null;
+    const t = term.trim();
+    if (!t) return null;
+    if (/[,;?]/.test(t)) return null;
+    if (t.split(/\s+/).length > 3) return null;
+    return t;
+  };
 
   // Trigger search with loading and real-time backend AI query
   const handleExecuteSearch = async (payload: { term: string; drugs?: string[] }) => {
@@ -46,6 +92,18 @@ export default function App() {
 
     setSearchExecutedTerm(term);
     setIsSearchLoading(true);
+
+    // Fire monograph fetch in parallel when the query looks like a single drug
+    const monoDrug = shouldFetchMonograph(drugs, term);
+    if (monoDrug) {
+      setMonographTab('monograph');
+      fetchMonograph(monoDrug);
+    } else {
+      if (monographAbortRef.current) monographAbortRef.current.abort();
+      setMonograph(null);
+      setIsMonographLoading(false);
+      setMonographTab('interactions');
+    }
 
     const startTime = Date.now();
 
@@ -223,8 +281,82 @@ export default function App() {
               isSearchLoading={isSearchLoading}
             />
 
+            {/* Top-level toggle Monografia / Interações (only when we have a monograph context) */}
+            {searchExecutedTerm && (isMonographLoading || monograph) && (
+              <div className="max-w-4xl mx-auto px-4 sm:px-6 mt-6 sm:mt-8">
+                <div
+                  role="tablist"
+                  aria-label="Modo de visualização"
+                  className="inline-flex items-center bg-white border border-slate-200 rounded-full p-1 shadow-2xs"
+                >
+                  <button
+                    role="tab"
+                    aria-selected={monographTab === 'monograph'}
+                    type="button"
+                    onClick={() => setMonographTab('monograph')}
+                    className={`h-9 px-4 rounded-full text-[12.5px] font-semibold transition-colors cursor-pointer ${
+                      monographTab === 'monograph'
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Monografia
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={monographTab === 'interactions'}
+                    type="button"
+                    onClick={() => setMonographTab('interactions')}
+                    className={`h-9 px-4 rounded-full text-[12.5px] font-semibold transition-colors cursor-pointer ${
+                      monographTab === 'interactions'
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Interações
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* CARDS LIST CONTAINER / REAL-TIME LOADING */}
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 mt-6 sm:mt-10">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 mt-6 sm:mt-6">
+              {/* Monograph panel */}
+              {searchExecutedTerm && monographTab === 'monograph' && (isMonographLoading || monograph) && (
+                <>
+                  {isMonographLoading && !monograph ? (
+                    <DrugMonograph
+                      loading
+                      monograph={{
+                        drug: '',
+                        dosage: {
+                          therapeuticClass: '',
+                          regulatoryClass: '',
+                          presentations: [],
+                          adultStandard: [],
+                          maxDailyDose: '',
+                        },
+                        adjustment: { renal: [], hepatic: '', pregnancy: '', lactation: '' },
+                        pharmacokinetics: {
+                          onsetByRoute: [],
+                          halfLife: '',
+                          duration: '',
+                          metabolism: '',
+                          proteinBinding: '',
+                          excretion: '',
+                        },
+                        administration: { routes: [], dilution: [], oralCare: '', stability: '' },
+                      }}
+                    />
+                  ) : monograph ? (
+                    <DrugMonograph monograph={monograph} />
+                  ) : null}
+                </>
+              )}
+
+              {/* Interactions panel — shown when the toggle is 'interactions' OR when there's no monograph context */}
+              {(!searchExecutedTerm || monographTab === 'interactions' || (!isMonographLoading && !monograph)) && (
+                <>
               {loadingData ? (
                 <div className="py-16 text-center text-slate-500">
                   <RefreshCw className="w-6 h-6 text-lime-600 animate-spin mx-auto mb-3" />
@@ -333,6 +465,8 @@ export default function App() {
                     />
                   ))}
                 </div>
+              )}
+                </>
               )}
             </div>
           </div>

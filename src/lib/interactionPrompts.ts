@@ -156,6 +156,148 @@ ${buildSearchUserPrompt(drugs, freeText)}
 Responda com JSON puro (sem markdown, sem crase tripla).`;
 }
 
+// ============================================================================
+// Drug monograph — technical sheet generator (4 sections)
+// ============================================================================
+
+const MONOGRAPH_SCHEMA = `SCHEMA JSON OBRIGATÓRIO (retorne SEMPRE {"monograph": { ... }}):
+{
+  "monograph": {
+    "drug": "DCB oficial do medicamento",
+    "synonyms": ["nomes comerciais e sinônimos frequentes"],
+    "dosage": {
+      "therapeuticClass": "Classe terapêutica/farmacológica (ex: 'Antibiótico beta-lactâmico', 'ISRS')",
+      "regulatoryClass": "Classificação regulatória Anvisa (ex: 'Receita B1 - Azul', 'Receita Simples - Branca', 'Venda livre', 'C1 - Amarela')",
+      "presentations": ["Forma farmacêutica + concentração (ex: 'Comprimido 500 mg', 'Solução IV 1 g/10 mL', 'Suspensão oral 250 mg/5 mL')"],
+      "adultStandard": [{"indication": "Indicação clínica principal", "dose": "Dose + via + posologia + duração (ex: '500 mg VO 12/12 h por 7-10 dias')"}],
+      "pediatric": "Dose pediátrica em mg/kg + faixa etária (ex: '30-50 mg/kg/dia VO divididos 8/8 h, > 3 meses'). Se contraindicado, escreva 'Contraindicado em < X anos'. Se não aplicável, string vazia.",
+      "geriatric": "Ajuste em > 65 anos (ex: 'Reduzir dose 25% se ClCr < 60 mL/min'). Se sem ajuste, escreva 'Sem ajuste específico'.",
+      "maxDailyDose": "Dose máxima diária + via (ex: 'Adulto: 4 g/dia VO; Pediátrico: 90 mg/kg/dia')"
+    },
+    "adjustment": {
+      "renal": [
+        {"crcl": "ClCr > 50 mL/min", "adjustment": "Conduta exata (ex: 'Sem ajuste')"},
+        {"crcl": "ClCr 30-50 mL/min", "adjustment": "Conduta exata (ex: 'Reduzir dose 50%')"},
+        {"crcl": "ClCr < 30 mL/min", "adjustment": "Conduta exata (ex: 'Intervalo 24 h ou contraindicado')"}
+      ],
+      "hepatic": "Condutas por Child-Pugh A/B/C. Ex: 'A: sem ajuste; B: reduzir 50%; C: contraindicado por risco de encefalopatia'.",
+      "pregnancy": "Categoria de risco (FDA A/B/C/D/X + Anvisa quando aplicável) + diretriz curta.",
+      "lactation": "Compatibilidade (ex: 'L1 seguro') + conduta (ex: 'Amamentação permitida' ou 'Suspender amamentação por 12 h após dose')."
+    },
+    "pharmacokinetics": {
+      "onsetByRoute": [
+        {"route": "Oral", "onset": "Tempo até início do efeito"},
+        {"route": "IV", "onset": "Imediato / < 5 min"}
+      ],
+      "halfLife": "t1/2 em horas (ex: '4-6 h'). Se prolongada em nefropata, adicionar em parênteses.",
+      "duration": "Duração do efeito clínico útil (ex: '6-8 h por dose')",
+      "metabolism": "Via metabólica principal + enzimas específicas (ex: 'Hepático via CYP3A4 (majoritário) e CYP2D6 (minoritário); substrato de glicoproteína-P')",
+      "proteinBinding": "Percentual de ligação a proteínas plasmáticas (ex: '95% - alta ligação a albumina')",
+      "excretion": "Via + percentuais (ex: 'Renal 70% inalterado; fecal 20%; biliar 10%')"
+    },
+    "administration": {
+      "routes": ["Vias permitidas (ex: 'VO', 'IV', 'IM', 'SC', 'Tópica', 'Inalatória')"],
+      "dilution": [
+        {"solution": "SF 0,9% ou SG 5%", "volume": "100 mL", "finalConcentration": "1 mg/mL"}
+      ],
+      "oralCare": "Instruções para VO/SNE: pode partir, triturar, mastigar? Compatível com sonda nasoentérica? Tomar com ou sem alimento?",
+      "stability": "Validade do frasco fechado + após diluição/reconstituição + condições de armazenamento (temperatura, luz, refrigeração)."
+    }
+  }
+}`;
+
+const MONOGRAPH_DIRECTIVES = `DIRETRIZES OBRIGATÓRIAS:
+- Termos precisos: evite 'usar com cautela'. Informe o que fazer, valor exato ou percentual.
+- Frases curtas, valores diretos, leitura < 5 segundos no ponto de cuidado.
+- Sem saudações, preâmbulos, texto fora do JSON.
+- Se um dado não existir para o fármaco, retorne string vazia (ou array vazio) — NÃO invente.
+- Priorize dados aplicáveis à prática hospitalar/ambulatorial no Brasil.
+- Use unidades do SI (mg, g, mL, min, h, mL/min).`;
+
+export function buildMonographSystemPrompt(): string {
+  return `Você é um sistema especialista em Farmacologia Clínica, Farmácia Hospitalar e Posologia Médica.
+Sua saída alimenta a monografia técnica de medicamentos da plataforma Interafarma, exibida em 4 abas: Posologia & Doses, Ajuste Renal/Hepático, Farmacocinética, Diluição e Administração.
+
+Referencie a literatura primária: Micromedex, Sanford Guide, Anvisa Bulário, FDA Label, DrugBank, Uptodate, Trissel's Handbook (para compatibilidades IV).
+
+${MONOGRAPH_DIRECTIVES}
+
+${MONOGRAPH_SCHEMA}`;
+}
+
+export function buildMonographUserPrompt(drug: string): string {
+  return `Gere a monografia técnica completa do medicamento: "${drug.trim()}".
+
+Se o fármaco tem múltiplas apresentações relevantes (oral, IV, IM, tópica), inclua as principais em "presentations" e "onsetByRoute". Se for apenas VO, retorne só oral.
+
+Formato: JSON puro conforme schema, começando com {"monograph": ...`;
+}
+
+export function normalizeMonograph(raw: any): any {
+  if (!raw || typeof raw !== 'object') return null;
+  const source = raw.monograph || raw;
+  const asStr = (v: any, f = ''): string =>
+    typeof v === 'string' && v.trim() ? v.trim() : f;
+  const asArr = (v: any): any[] => (Array.isArray(v) ? v : []);
+  const asStrArr = (v: any): string[] =>
+    asArr(v).filter(Boolean).map((x) => String(x).trim());
+
+  return {
+    drug: asStr(source.drug, 'Medicamento'),
+    synonyms: asStrArr(source.synonyms),
+    dosage: {
+      therapeuticClass: asStr(source.dosage?.therapeuticClass),
+      regulatoryClass: asStr(source.dosage?.regulatoryClass),
+      presentations: asStrArr(source.dosage?.presentations),
+      adultStandard: asArr(source.dosage?.adultStandard)
+        .map((r: any) => ({
+          indication: asStr(r?.indication),
+          dose: asStr(r?.dose),
+        }))
+        .filter((r) => r.indication || r.dose),
+      pediatric: asStr(source.dosage?.pediatric),
+      geriatric: asStr(source.dosage?.geriatric),
+      maxDailyDose: asStr(source.dosage?.maxDailyDose),
+    },
+    adjustment: {
+      renal: asArr(source.adjustment?.renal)
+        .map((r: any) => ({
+          crcl: asStr(r?.crcl),
+          adjustment: asStr(r?.adjustment),
+        }))
+        .filter((r) => r.crcl || r.adjustment),
+      hepatic: asStr(source.adjustment?.hepatic),
+      pregnancy: asStr(source.adjustment?.pregnancy),
+      lactation: asStr(source.adjustment?.lactation),
+    },
+    pharmacokinetics: {
+      onsetByRoute: asArr(source.pharmacokinetics?.onsetByRoute)
+        .map((r: any) => ({
+          route: asStr(r?.route),
+          onset: asStr(r?.onset),
+        }))
+        .filter((r) => r.route || r.onset),
+      halfLife: asStr(source.pharmacokinetics?.halfLife),
+      duration: asStr(source.pharmacokinetics?.duration),
+      metabolism: asStr(source.pharmacokinetics?.metabolism),
+      proteinBinding: asStr(source.pharmacokinetics?.proteinBinding),
+      excretion: asStr(source.pharmacokinetics?.excretion),
+    },
+    administration: {
+      routes: asStrArr(source.administration?.routes),
+      dilution: asArr(source.administration?.dilution)
+        .map((r: any) => ({
+          solution: asStr(r?.solution),
+          volume: asStr(r?.volume),
+          finalConcentration: asStr(r?.finalConcentration),
+        }))
+        .filter((r) => r.solution || r.volume || r.finalConcentration),
+      oralCare: asStr(source.administration?.oralCare),
+      stability: asStr(source.administration?.stability),
+    },
+  };
+}
+
 // Normalize AI results to guarantee shape stability (fill missing fields, coerce arrays, etc.)
 export function normalizeResults(rawResults: any[], provider: string): any[] {
   const t = Date.now();
