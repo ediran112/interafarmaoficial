@@ -12,8 +12,12 @@ async function loadApp() {
     const openaiMod = await import('openai');
     const googleGenAIMod = await import('@google/genai');
     const dotenvMod = await import('dotenv');
-    const dataMod = await import('./_lib/interactionsData');
-    const promptsMod = await import('./_lib/interactionPrompts');
+    // Node ESM requires explicit .js extension in specifiers, even when the
+    // source is .ts (the runtime resolves to the compiled .js).
+    // @ts-ignore — TS complains but Vercel/Node ESM needs the .js suffix.
+    const dataMod = await import('./_lib/interactionsData.js');
+    // @ts-ignore
+    const promptsMod = await import('./_lib/interactionPrompts.js');
 
     const express = expressMod.default;
     const OpenAI = openaiMod.default;
