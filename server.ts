@@ -197,6 +197,7 @@ async function startServer() {
                 { role: 'user', content: userMsg },
               ],
               temperature: 0.15,
+              max_tokens: 4096,
             });
           } catch (miniErr: any) {
             console.warn('gpt-4o-mini failed in server.ts, fallback to gpt-3.5-turbo:', miniErr.message || miniErr);

@@ -98,6 +98,7 @@ async function loadApp() {
                   { role: 'user', content: userMsg },
                 ],
                 temperature: 0.15,
+                max_tokens: 4096,
               });
             } catch (miniErr: any) {
               usedModel = 'gpt-3.5-turbo';

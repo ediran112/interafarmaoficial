@@ -261,11 +261,13 @@ Recomendação: ${interaction.recommendation}`;
                 text={interaction.specialPopulations}
               />
             )}
-            <ClinicalField
-              icon={<Sparkle className="w-4 h-4 text-lime-600" />}
-              label="Alternativas terapêuticas"
-              text={interaction.alternatives}
-            />
+            {interaction.alternatives && (
+              <ClinicalField
+                icon={<Sparkle className="w-4 h-4 text-lime-600" />}
+                label="Alternativas terapêuticas"
+                text={interaction.alternatives}
+              />
+            )}
             {interaction.foodInteractions && (
               <ClinicalField
                 icon={<Utensils className="w-4 h-4 text-amber-600" />}
