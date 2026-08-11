@@ -7,14 +7,14 @@ import express from 'express';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
-import { INITIAL_30_INTERACTIONS } from '../src/data/interactionsData';
+import { INITIAL_30_INTERACTIONS } from './_lib/interactionsData';
 import {
   normalizeInput,
   buildSearchSystemPrompt,
   buildSearchUserPrompt,
   buildGeminiSearchPrompt,
   normalizeResults,
-} from '../src/lib/interactionPrompts';
+} from './_lib/interactionPrompts';
 
 if (!process.env.VERCEL) {
   try {
