@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, X, Send, Bot, ShieldCheck, AlertCircle, RefreshCw, BookOpen } from 'lucide-react';
+import { X, Send, ShieldCheck, AlertCircle, RefreshCw, BookOpen, Pill } from 'lucide-react';
 import { AIAdviceResponse } from '../types';
 
 interface AIAdvisorModalProps {
@@ -15,7 +15,7 @@ export const AIAdvisorModal: React.FC<AIAdvisorModalProps> = ({
   onClose,
   initialDrugA = '',
   initialDrugB = '',
-  allDrugNames
+  allDrugNames,
 }) => {
   const [selectedDrugs, setSelectedDrugs] = useState<string[]>([]);
   const [customQuestion, setCustomQuestion] = useState('');
@@ -51,77 +51,71 @@ export const AIAdvisorModal: React.FC<AIAdvisorModalProps> = ({
       const res = await fetch('/api/ai-advice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          drugs: selectedDrugs,
-          question: customQuestion
-        })
+        body: JSON.stringify({ drugs: selectedDrugs, question: customQuestion }),
       });
-
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.error || 'Erro ao consultar a orientação.');
       }
-
       const data: AIAdviceResponse = await res.json();
       setResponse(data);
     } catch (err: any) {
-      console.error('AI Advice Error:', err);
-      setError(err.message || 'Falha ao conectar com o serviço de orientação IA.');
+      setError(err.message || 'Falha ao conectar com o serviço de orientação.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden relative max-h-[90vh] flex flex-col">
-        
-        {/* Header Bar */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800 p-6 text-white relative shrink-0">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-950/70 backdrop-blur-sm">
+      <div className="bg-white sm:rounded-2xl rounded-t-3xl max-w-xl w-full border border-slate-200 shadow-xl overflow-hidden relative max-h-[92vh] sm:max-h-[88vh] flex flex-col pb-safe">
+        {/* Header */}
+        <div className="p-5 sm:p-6 border-b border-slate-200 flex items-start justify-between shrink-0">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-lime-50 border border-lime-200 text-lime-800 text-[10px] font-semibold uppercase tracking-[0.12em] mb-2">
+              <Pill className="w-3 h-3" />
+              Orientação farmacêutica
+            </div>
+            <h3 className="font-serif text-xl sm:text-2xl font-semibold tracking-tight text-slate-900">
+              Parecer clínico personalizado
+            </h3>
+            <p className="text-[13px] text-slate-500 mt-1 leading-relaxed">
+              Análise baseada em evidências para esclarecer dúvidas sobre os
+              medicamentos selecionados.
+            </p>
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-5 right-5 p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            aria-label="Fechar"
+            className="shrink-0 -m-1 p-2 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
-
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-lime-400 to-emerald-400 text-slate-950 font-black shadow-md">
-              <Sparkles className="w-5 h-5 fill-slate-950" />
-            </div>
-            <span className="text-xs font-bold uppercase tracking-wider text-lime-400">
-              Orientação Farmacêutica Inteligente
-            </span>
-          </div>
-
-          <h3 className="text-xl font-black">
-            Assistente Virtual Interafarma
-          </h3>
-          <p className="text-xs text-slate-300 mt-1">
-            Gere uma análise detalhada baseada em evidências clínicas para esclarecer dúvidas sobre os medicamentos pesquisados.
-          </p>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-5 flex-1">
-          
-          {/* Active Drugs Selection Chips */}
+        {/* Body */}
+        <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
           <div>
-            <label className="block text-xs font-extrabold text-slate-700 uppercase mb-2">
-              Medicamentos em Análise:
+            <label className="block text-[10.5px] font-semibold text-slate-600 uppercase tracking-[0.14em] mb-2">
+              Medicamentos em análise
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {selectedDrugs.map((drug, idx) => (
                 <span
                   key={idx}
-                  className="px-3 py-1.5 rounded-xl bg-lime-100 border border-lime-300 text-slate-950 font-bold text-xs flex items-center gap-1.5"
+                  className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 bg-emerald-50 border border-emerald-200 text-emerald-900 font-serif text-[14px] font-semibold rounded-lg"
                 >
                   {drug}
                   <button
-                    onClick={() => setSelectedDrugs(selectedDrugs.filter((_, i) => i !== idx))}
-                    className="text-slate-500 hover:text-rose-600 font-bold ml-1"
+                    type="button"
+                    onClick={() =>
+                      setSelectedDrugs(selectedDrugs.filter((_, i) => i !== idx))
+                    }
+                    className="ml-0.5 p-0.5 rounded-md hover:bg-emerald-100 cursor-pointer text-emerald-700"
+                    aria-label={`Remover ${drug}`}
                   >
-                    ×
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </span>
               ))}
@@ -134,86 +128,84 @@ export const AIAdvisorModal: React.FC<AIAdvisorModalProps> = ({
                     }
                     e.target.value = '';
                   }}
-                  className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 font-semibold text-xs focus:outline-none cursor-pointer"
+                  className="h-9 pl-3 pr-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 font-medium text-[13px] focus:outline-none focus:border-lime-500 cursor-pointer"
                 >
-                  <option value="">+ Adicionar medicamento...</option>
+                  <option value="">+ Adicionar…</option>
                   {allDrugNames.map((name, i) => (
-                    <option key={i} value={name}>{name}</option>
+                    <option key={i} value={name}>
+                      {name}
+                    </option>
                   ))}
                 </select>
               </div>
             </div>
           </div>
 
-          {/* Custom Question Input */}
           <div>
-            <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">
-              Dúvida Específica (Opcional):
+            <label className="block text-[10.5px] font-semibold text-slate-600 uppercase tracking-[0.14em] mb-2">
+              Dúvida específica (opcional)
             </label>
             <input
               type="text"
               value={customQuestion}
               onChange={(e) => setCustomQuestion(e.target.value)}
-              placeholder="Ex: Posso tomar junto no café da manhã? Quais os horários ideais?"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-medium focus:border-lime-500 focus:outline-none"
+              placeholder="Ex.: Posso tomar no café da manhã? Quais horários ideais?"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-300 text-[14px] text-slate-900 placeholder-slate-400 font-medium focus:border-lime-500 focus:outline-none focus:ring-4 focus:ring-lime-400/15"
             />
           </div>
 
-          {/* Action Submit Button */}
           <button
+            type="button"
             onClick={handleFetchAdvice}
             disabled={loading || selectedDrugs.length === 0}
-            className="w-full py-3.5 rounded-full bg-lime-400 hover:bg-lime-300 text-slate-950 font-black text-sm transition-all shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-semibold text-[14px] transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Analisando literatura e gerando parecer...</span>
+                <span>Consultando literatura clínica…</span>
               </>
             ) : (
               <>
-                <Bot className="w-5 h-5" />
-                <span>Gerar Parecer Farmacêutico IA</span>
+                <Send className="w-4 h-4" />
+                <span>Gerar parecer</span>
               </>
             )}
           </button>
 
           {error && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2">
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[13px] font-medium flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* Response Output Display */}
           {response && (
-            <div className="mt-6 bg-slate-50 rounded-2xl p-5 border border-slate-200 space-y-4 animate-fadeIn">
-              <div className="flex items-center gap-2 text-slate-900 font-extrabold text-sm pb-2 border-b border-slate-200">
-                <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                <span>Parecer Orientativo Gerado:</span>
+            <div className="mt-2 bg-slate-50 rounded-2xl p-5 border border-slate-200 space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+                  Parecer orientativo
+                </span>
               </div>
 
-              <div className="text-slate-800 text-xs sm:text-sm leading-relaxed whitespace-pre-line font-normal space-y-2">
+              <div className="text-[14.5px] text-slate-800 leading-[1.7] whitespace-pre-line font-serif">
                 {response.answer}
               </div>
 
-              {/* Sources */}
               {response.sources && response.sources.length > 0 && (
                 <div className="pt-2 text-[11px] text-slate-500 flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5 text-lime-600" />
-                  <span>Fontes de referência: {response.sources.join(' • ')}</span>
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>Fontes: {response.sources.join(' · ')}</span>
                 </div>
               )}
 
-              {/* Disclaimer */}
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium leading-normal">
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11.5px] leading-relaxed">
                 {response.disclaimer}
               </div>
             </div>
           )}
-
         </div>
-
       </div>
     </div>
   );

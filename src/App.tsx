@@ -18,7 +18,7 @@ import { AuthModal } from './components/AuthModal';
 import { AIAdvisorModal } from './components/AIAdvisorModal';
 import { SavedChecks } from './components/SavedChecks';
 import { SafetyGuide } from './components/SafetyGuide';
-import { Pill, ShieldCheck, Heart, Sparkles, AlertCircle, RefreshCw, Search, Zap, Database, Bot } from 'lucide-react';
+import { Pill, AlertCircle, RefreshCw, Search, Zap } from 'lucide-react';
 
 export default function App() {
   const [interactions, setInteractions] = useState<DrugInteraction[]>([]);
@@ -29,27 +29,8 @@ export default function App() {
   const [searchExecutedTerm, setSearchExecutedTerm] = useState('');
   const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [severityFilter, setSeverityFilter] = useState('Todos');
-  const [aiStatus, setAiStatus] = useState<{
-    openaiConfigured: boolean;
-    geminiConfigured: boolean;
-    activeProvider: string;
-    openaiKeySnippet: string | null;
-  } | null>(null);
-  const [lastProvider, setLastProvider] = useState<string | null>(null);
   const [lastResponseMs, setLastResponseMs] = useState<number | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
-
-  // Check AI Status from backend on mount
-  useEffect(() => {
-    fetch('/api/ai-status')
-      .then((res) => res.json())
-      .then((data) => {
-        setAiStatus(data);
-      })
-      .catch((err) => {
-        console.warn('Could not fetch AI status:', err);
-      });
-  }, []);
 
   // Trigger search with loading and real-time backend AI query
   const handleExecuteSearch = async (payload: { term: string; drugs?: string[] }) => {
@@ -78,9 +59,6 @@ export default function App() {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.provider) {
-          setLastProvider(data.provider);
-        }
         setLastResponseMs(Date.now() - startTime);
         if (data.results && Array.isArray(data.results) && data.results.length > 0) {
           setInteractions((prev) => {
@@ -243,35 +221,35 @@ export default function App() {
               allDrugNames={allDrugNames}
               onExecuteSearch={handleExecuteSearch}
               isSearchLoading={isSearchLoading}
-              aiStatus={aiStatus}
             />
 
             {/* CARDS LIST CONTAINER / REAL-TIME LOADING */}
-            <div className="max-w-5xl mx-auto px-4 mt-8">
-              
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 mt-6 sm:mt-10">
               {loadingData ? (
                 <div className="py-16 text-center text-slate-500">
-                  <RefreshCw className="w-8 h-8 text-lime-600 animate-spin mx-auto mb-3" />
-                  <p className="text-sm font-semibold">Carregando banco de interações do Interafarma...</p>
+                  <RefreshCw className="w-6 h-6 text-lime-600 animate-spin mx-auto mb-3" />
+                  <p className="text-sm font-medium">Carregando banco de interações...</p>
                 </div>
               ) : isSearchLoading ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between px-2 text-xs text-slate-500 font-bold">
-                    <span className="inline-flex items-center gap-2">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex items-center justify-between px-1 text-[12px] text-slate-500">
+                    <span className="inline-flex items-center gap-1.5">
                       <RefreshCw className="w-3.5 h-3.5 text-lime-600 animate-spin" />
-                      Pesquisando <strong className="text-slate-900">"{searchExecutedTerm}"</strong> em tempo real...
+                      Consultando{' '}
+                      <span className="font-serif text-slate-900 italic">
+                        "{searchExecutedTerm}"
+                      </span>
                     </span>
-                    <span className="hidden sm:inline">Consultando fonte farmacológica</span>
                   </div>
                   {[0, 1, 2].map((i) => (
                     <div
                       key={i}
-                      className="bg-white rounded-3xl p-6 border-2 border-slate-200 shadow-sm overflow-hidden relative"
+                      className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 overflow-hidden relative"
                       style={{ animationDelay: `${i * 80}ms` }}
                     >
                       <div className="flex items-start gap-4">
-                        <div className="w-11 h-11 rounded-2xl bg-slate-200 animate-pulse" />
-                        <div className="flex-1 space-y-2.5">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 animate-pulse shrink-0" />
+                        <div className="flex-1 space-y-2.5 min-w-0">
                           <div className="h-4 w-2/3 rounded-md bg-slate-200 animate-pulse" />
                           <div className="h-3 w-1/3 rounded-md bg-slate-100 animate-pulse" />
                           <div className="pt-2 space-y-1.5">
@@ -280,79 +258,64 @@ export default function App() {
                             <div className="h-3 w-9/12 rounded-md bg-slate-100 animate-pulse" />
                           </div>
                         </div>
-                        <div className="w-16 h-6 rounded-full bg-slate-200 animate-pulse hidden sm:block" />
                       </div>
-                      <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-lime-400 to-transparent animate-[pulse_1.4s_ease-in-out_infinite]" />
+                      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-lime-400 to-transparent animate-[pulse_1.4s_ease-in-out_infinite]" />
                     </div>
                   ))}
                 </div>
               ) : !searchExecutedTerm ? (
-                /* INITIAL PROMPT STATE - NO RESULTS SHOWN UNTIL USER SEARCHES */
-                <div className="bg-white rounded-3xl p-10 sm:p-12 text-center border-2 border-slate-200 shadow-sm max-w-2xl mx-auto my-6">
-                  <div className="w-16 h-16 bg-lime-100 text-lime-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-lime-200 shadow-2xs">
-                    <Search className="w-8 h-8 text-lime-600" />
+                <div className="bg-white rounded-2xl p-8 sm:p-12 text-center border border-slate-200 max-w-xl mx-auto my-8">
+                  <div className="w-12 h-12 bg-lime-50 text-lime-700 rounded-full flex items-center justify-center mx-auto mb-4 border border-lime-100">
+                    <Search className="w-5 h-5" />
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-2">
-                    Buscador de Interações em Tempo Real
+                  <h3 className="font-serif text-2xl font-semibold tracking-tight text-slate-900 mb-2">
+                    Pronto para consultar
                   </h3>
-                  <p className="text-sm font-medium text-slate-600 max-w-md mx-auto leading-relaxed">
-                    Digite o nome de um medicamento no campo de busca acima e clique em <strong className="text-slate-900">Pesquisar</strong> para consultar interações e riscos clínicos.
+                  <p className="text-[14px] text-slate-600 leading-relaxed max-w-sm mx-auto">
+                    Digite um medicamento no campo acima. As interações aparecem em
+                    tempo real conforme você escreve.
                   </p>
                 </div>
               ) : filteredInteractions.length === 0 ? (
-                /* NO RESULTS FOUND FOR EXECUTED SEARCH */
-                <div className="bg-white rounded-3xl p-12 text-center border-2 border-slate-200 shadow-sm max-w-2xl mx-auto my-6">
-                  <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-                  <h3 className="text-xl font-extrabold text-slate-900">Nenhuma interação encontrada para "{searchExecutedTerm}"</h3>
-                  <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
-                    Verifique a grafia do remédio ou tente pesquisar por outro medicamento (ex: Warfarina, Sinvastatina, Ibuprofeno, Fluoxetina, Aspirina).
+                <div className="bg-white rounded-2xl p-8 sm:p-10 text-center border border-slate-200 max-w-xl mx-auto my-8">
+                  <AlertCircle className="w-9 h-9 text-amber-500 mx-auto mb-3" />
+                  <h3 className="font-serif text-xl font-semibold text-slate-900">
+                    Nada encontrado para{' '}
+                    <span className="italic">"{searchExecutedTerm}"</span>
+                  </h3>
+                  <p className="text-[13px] text-slate-500 mt-2 max-w-md mx-auto leading-relaxed">
+                    Verifique a grafia ou tente Warfarina, Sinvastatina, Ibuprofeno,
+                    Fluoxetina, Aspirina.
                   </p>
                   <button
-                    onClick={() => { setSearchTerm(''); setSearchExecutedTerm(''); }}
-                    className="mt-5 px-5 py-2.5 bg-lime-400 hover:bg-lime-300 text-slate-950 font-black text-xs rounded-full shadow-sm transition-all cursor-pointer"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSearchExecutedTerm('');
+                    }}
+                    className="mt-4 h-10 px-5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[13px] rounded-full transition-colors cursor-pointer"
                   >
-                    Limpar Pesquisa
+                    Limpar consulta
                   </button>
                 </div>
               ) : (
-                /* RESULTS FOUND FOR EXECUTED SEARCH */
-                <div className="space-y-6">
-                  <div className="flex flex-wrap items-center justify-between gap-2 px-2 text-xs text-slate-500 font-bold">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span>Resultado da pesquisa para <span className="text-slate-900">"{searchExecutedTerm}"</span></span>
-                      {lastProvider && (
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider ${
-                            lastProvider === 'openai'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : lastProvider === 'gemini'
-                              ? 'bg-sky-100 text-sky-800 border border-sky-200'
-                              : 'bg-slate-100 text-slate-700 border border-slate-200'
-                          }`}
-                        >
-                          {lastProvider === 'openai' ? (
-                            <>
-                              <Bot className="w-3 h-3" /> via OpenAI ChatGPT
-                            </>
-                          ) : lastProvider === 'gemini' ? (
-                            <>
-                              <Bot className="w-3 h-3" /> via Google Gemini
-                            </>
-                          ) : (
-                            <>
-                              <Database className="w-3 h-3" /> Base local
-                            </>
-                          )}
-                        </span>
-                      )}
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[12px] text-slate-500">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span>Resultado para</span>
+                      <span className="font-serif italic text-slate-900">
+                        "{searchExecutedTerm}"
+                      </span>
                       {lastResponseMs !== null && (
-                        <span className="inline-flex items-center gap-1 text-slate-500 font-semibold">
+                        <span className="inline-flex items-center gap-1 text-slate-400 font-mono text-[11px] ml-1">
                           <Zap className="w-3 h-3 text-lime-600" />
-                          {(lastResponseMs / 1000).toFixed(2)} s
+                          {(lastResponseMs / 1000).toFixed(2)}s
                         </span>
                       )}
-                    </div>
-                    <span>{filteredInteractions.length} interação(ões) encontrada(s)</span>
+                    </span>
+                    <span className="font-mono text-[11px] text-slate-400">
+                      {filteredInteractions.length}{' '}
+                      {filteredInteractions.length === 1 ? 'interação' : 'interações'}
+                    </span>
                   </div>
 
                   {filteredInteractions.map((item) => (
@@ -361,13 +324,16 @@ export default function App() {
                       interaction={item}
                       onAskAIAdvice={handleOpenAI}
                       onSaveInteraction={(interactionItem) => {
-                        handleSaveCheck([interactionItem.drugA, interactionItem.drugB], 1, interactionItem.severity);
+                        handleSaveCheck(
+                          [interactionItem.drugA, interactionItem.drugB],
+                          1,
+                          interactionItem.severity
+                        );
                       }}
                     />
                   ))}
                 </div>
               )}
-
             </div>
           </div>
         )}
@@ -400,32 +366,35 @@ export default function App() {
 
       </main>
 
-      {/* FOOTER */}
-      <footer className="bg-slate-900 text-white border-t border-slate-800 py-10 px-4 mt-auto">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left text-xs text-slate-400">
-          
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-lime-400 text-slate-950 font-black flex items-center justify-center text-sm shadow-md">
-              <Pill className="w-5 h-5 stroke-[2.5]" />
+      <footer className="bg-slate-950 text-slate-300 border-t border-slate-800 mt-auto pb-safe">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-lime-400 text-slate-950 flex items-center justify-center">
+                <Pill className="w-4.5 h-4.5 stroke-[2.5]" />
+              </div>
+              <div>
+                <span className="block font-serif text-lg font-semibold tracking-tight text-white">
+                  Interafarma
+                </span>
+                <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500">
+                  Interações medicamentosas
+                </span>
+              </div>
             </div>
-            <div>
-              <span className="text-base font-extrabold text-white tracking-tight">
-                Intera<span className="text-lime-400">farma</span>
-              </span>
-              <p className="text-[11px] text-slate-400">
-                Plataforma Médica & Farmacológica de Interações Medicamentosas
-              </p>
-            </div>
+
+            <p className="max-w-md text-[12px] leading-relaxed text-slate-400">
+              <span className="text-slate-200 font-semibold">Aviso clínico.</span>{' '}
+              As informações desta plataforma têm fins educacionais e de apoio à
+              decisão clínica. Não substituem avaliação e prescrição por médico ou
+              farmacêutico habilitado.
+            </p>
           </div>
 
-          <p className="max-w-lg text-[11px] leading-relaxed">
-            <strong>Aviso de Isenção de Responsabilidade Médica:</strong> As informações contidas nesta plataforma destina-se a fins educacionais e de apoio à decisão clínica. Não substitui a avaliação e prescrissão por médico ou farmacêutico habilitado.
-          </p>
-
-          <p className="text-slate-500 text-[11px]">
-            © {new Date().getFullYear()} Interafarma. Todos os direitos reservados.
-          </p>
-
+          <div className="mt-6 pt-6 border-t border-slate-800 text-[11px] text-slate-500 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <span>© {new Date().getFullYear()} Interafarma. Todos os direitos reservados.</span>
+            <span className="font-mono text-slate-600">v1.0</span>
+          </div>
         </div>
       </footer>
 

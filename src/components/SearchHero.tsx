@@ -2,21 +2,20 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Search,
   X,
-  Sparkles,
   ChevronRight,
   Clock,
   Zap,
   Loader2,
   Command,
-  Flame,
   Plus,
   Layers,
   Pill,
+  Sparkle,
 } from 'lucide-react';
 
 export interface SearchPayload {
-  term: string;      // human-readable label ("Warfarina, Aspirina")
-  drugs?: string[];  // structured list (chip mode)
+  term: string;
+  drugs?: string[];
 }
 
 interface SearchHeroProps {
@@ -25,12 +24,6 @@ interface SearchHeroProps {
   allDrugNames: string[];
   onExecuteSearch: (payload: SearchPayload) => void;
   isSearchLoading?: boolean;
-  aiStatus?: {
-    openaiConfigured: boolean;
-    geminiConfigured: boolean;
-    activeProvider: string;
-    openaiKeySnippet: string | null;
-  } | null;
 }
 
 const RECENT_KEY = 'interafarma:recent-searches';
@@ -51,7 +44,6 @@ const POPULAR_COMBOS: { label: string; drugs: string[] }[] = [
   { label: 'Fluoxetina + Tramadol', drugs: ['Fluoxetina', 'Tramadol'] },
   { label: 'Sinvastatina + Amiodarona', drugs: ['Sinvastatina', 'Amiodarona'] },
   { label: 'Omeprazol + Clopidogrel', drugs: ['Omeprazol', 'Clopidogrel'] },
-  { label: 'Warfarina + Ibuprofeno + Fluoxetina', drugs: ['Warfarina', 'Ibuprofeno', 'Fluoxetina'] },
 ];
 
 function loadRecent(): { term: string; drugs?: string[] }[] {
@@ -96,7 +88,6 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
   allDrugNames,
   onExecuteSearch,
   isSearchLoading = false,
-  aiStatus,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [chips, setChips] = useState<string[]>([]);
@@ -128,7 +119,10 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
       const list = drugs.filter(Boolean);
       const label = list.length > 0 ? list.join(', ') : t;
       if (!label) return;
-      const key = list.length > 0 ? `L:${list.map((x) => x.toLowerCase()).sort().join('|')}` : `T:${t.toLowerCase()}`;
+      const key =
+        list.length > 0
+          ? `L:${list.map((x) => x.toLowerCase()).sort().join('|')}`
+          : `T:${t.toLowerCase()}`;
       if (key === lastExecutedRef.current) return;
       lastExecutedRef.current = key;
       const entry = list.length > 0 ? { term: label, drugs: list } : { term: t };
@@ -140,15 +134,13 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
     [onExecuteSearch]
   );
 
-  // Live debounced search — reacts to typing AND chips changes
   useEffect(() => {
     if (!autoSearch) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const t = searchTerm.trim();
     if (chips.length === 0 && t.length < MIN_CHARS_AUTO) return;
-    if (chips.length >= 1 && chips.length < 2 && t.length === 0) return; // wait for 2nd chip or text
+    if (chips.length >= 1 && chips.length < 2 && t.length === 0) return;
     debounceRef.current = setTimeout(() => {
-      // If free text has content, treat it as a candidate extra chip only when it looks like a drug (no ? or spaces > 2 words)
       const isLikelyQuestion = /\?/.test(t);
       let effectiveChips = chips;
       if (chips.length > 0 && t && !isLikelyQuestion) {
@@ -161,7 +153,6 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
     };
   }, [searchTerm, chips, autoSearch, executeWith]);
 
-  // Global "/" shortcut
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === '/' && document.activeElement?.tagName !== 'INPUT') {
@@ -192,7 +183,6 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
   };
 
   const handleInputChange = (v: string) => {
-    // Comma or semicolon auto-adds chip
     if (/[,;]$/.test(v)) {
       addChip(v.slice(0, -1));
     } else {
@@ -216,14 +206,10 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
     if (debounceRef.current) clearTimeout(debounceRef.current);
     let finalChips = chips;
     const t = searchTerm.trim();
-    if (t) {
-      // If user typed something free, treat as chip if we already have chips (matrix mode),
-      // otherwise as free text search.
-      if (chips.length > 0) {
-        finalChips = uniquePush(chips, t);
-        setChips(finalChips);
-        setSearchTerm('');
-      }
+    if (t && chips.length > 0) {
+      finalChips = uniquePush(chips, t);
+      setChips(finalChips);
+      setSearchTerm('');
     }
     executeWith(finalChips, t);
   };
@@ -239,65 +225,35 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
           .slice(0, 6)
       : [];
 
-  const providerLabel = aiStatus?.openaiConfigured
-    ? 'IA em Tempo Real • OpenAI ChatGPT'
-    : aiStatus?.geminiConfigured
-    ? 'IA em Tempo Real • Google Gemini'
-    : 'Base Farmacológica Oficial Interafarma';
-
-  const providerAccent = aiStatus?.openaiConfigured
-    ? 'from-emerald-100 to-lime-100 border-emerald-300 text-emerald-900'
-    : aiStatus?.geminiConfigured
-    ? 'from-sky-100 to-indigo-100 border-sky-300 text-sky-900'
-    : 'from-lime-100 to-lime-100 border-lime-300 text-lime-900';
-
-  const showAiActive = !!(aiStatus?.openaiConfigured || aiStatus?.geminiConfigured);
-
   const matrixMode = chips.length >= 2;
   const canSearch = chips.length > 0 || searchTerm.trim().length > 0;
 
   return (
-    <section className="relative overflow-hidden bg-slate-50 text-slate-900 pt-10 pb-10 px-4 sm:px-6 border-b border-slate-200">
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-lime-300/25 blur-3xl rounded-full pointer-events-none" />
-      <div className="absolute -bottom-10 right-10 w-72 h-72 bg-emerald-200/25 blur-2xl rounded-full pointer-events-none" />
+    <section className="relative overflow-hidden bg-white border-b border-slate-200 pt-8 sm:pt-14 pb-8 sm:pb-12 px-4 sm:px-6">
+      <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[36rem] h-[36rem] bg-lime-200/25 blur-[120px] rounded-full pointer-events-none" />
 
-      <div className="max-w-4xl mx-auto text-center relative z-10">
-        <div
-          className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r ${providerAccent} border text-xs font-bold uppercase tracking-wider mb-4 shadow-2xs`}
-        >
-          <span className="relative flex h-2.5 w-2.5">
-            {showAiActive && (
-              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
-            )}
-            <span
-              className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                showAiActive ? 'bg-emerald-500' : 'bg-lime-500'
-              }`}
-            />
-          </span>
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>{providerLabel}</span>
+      <div className="relative z-10 max-w-3xl mx-auto text-center">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-slate-600 mb-5">
+          <Sparkle className="w-3 h-3 text-lime-600" />
+          <span>Análise Clínica em Tempo Real</span>
         </div>
 
-        <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-slate-900 mb-3">
-          Pesquisa de{' '}
-          <span className="bg-lime-400 text-slate-950 px-3 py-0.5 rounded-xl inline-block mt-1 sm:mt-0">
-            Interações Medicamentosas
-          </span>
+        <h1 className="font-serif text-fluid-display font-semibold tracking-tight text-slate-900 mb-4">
+          Interações medicamentosas,{' '}
+          <span className="italic text-lime-700">analisadas</span> por par.
         </h1>
 
-        <p className="text-slate-600 text-sm sm:text-base max-w-2xl mx-auto mb-6 leading-relaxed font-medium">
-          Digite um ou mais medicamentos (separe por vírgula) para gerar em tempo real a
-          matriz completa de interações, com mecanismo, evidência, monitorização e conduta clínica.
+        <p className="text-fluid-lead text-slate-600 max-w-xl mx-auto mb-8 font-normal">
+          Digite um ou mais medicamentos, separados por vírgula, para consultar
+          mecanismo, evidência científica, monitorização e conduta clínica.
         </p>
 
-        {/* SEARCH BOX WITH CHIPS */}
-        <form onSubmit={handleSubmit} className="relative max-w-2xl mx-auto">
+        <form onSubmit={handleSubmit} className="relative">
           <div
-            className={`relative flex flex-wrap items-center gap-1.5 bg-white rounded-2xl shadow-md transition-all border-2 p-1.5 pl-3 ${
+            className={`relative flex flex-wrap items-center gap-1.5 bg-white rounded-2xl transition-all border p-1.5 pl-3 min-h-[52px] ${
               isFocused
-                ? 'border-lime-500 ring-4 ring-lime-400/30'
-                : 'border-slate-200 hover:border-lime-400'
+                ? 'border-lime-500 shadow-[0_0_0_4px_rgba(163,230,53,0.15)]'
+                : 'border-slate-300 hover:border-slate-400 shadow-2xs'
             }`}
           >
             <div className="text-slate-400 shrink-0">
@@ -306,21 +262,21 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
               ) : matrixMode ? (
                 <Layers className="w-5 h-5 text-emerald-600" />
               ) : (
-                <Search className="w-5 h-5 text-lime-600" />
+                <Search className="w-5 h-5 text-slate-500" />
               )}
             </div>
 
             {chips.map((c) => (
               <span
                 key={c}
-                className="inline-flex items-center gap-1 pl-3 pr-1.5 py-1 bg-emerald-100 border border-emerald-300 text-emerald-900 text-sm font-bold rounded-full shadow-2xs"
+                className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 bg-emerald-50 border border-emerald-200 text-emerald-900 font-serif text-[15px] font-semibold rounded-lg"
               >
-                <Pill className="w-3.5 h-3.5" />
+                <Pill className="w-3.5 h-3.5 opacity-70" />
                 <span>{c}</span>
                 <button
                   type="button"
                   onClick={() => removeChip(c)}
-                  className="ml-0.5 p-0.5 rounded-full hover:bg-emerald-200 cursor-pointer"
+                  className="ml-0.5 p-0.5 rounded-md hover:bg-emerald-100 cursor-pointer"
                   aria-label={`Remover ${c}`}
                 >
                   <X className="w-3.5 h-3.5" />
@@ -338,11 +294,15 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
               onBlur={() => setTimeout(() => setIsFocused(false), 200)}
               placeholder={
                 chips.length === 0
-                  ? 'Ex.: "Warfarina" — ou "Warfarina, Aspirina, Ibuprofeno"'
-                  : 'Adicionar mais um medicamento…'
+                  ? 'Warfarina, Aspirina, Ibuprofeno…'
+                  : 'Adicionar medicamento…'
               }
-              className="flex-1 min-w-[140px] py-2.5 px-2 text-slate-900 placeholder-slate-400 text-sm sm:text-base font-semibold rounded-xl focus:outline-none bg-transparent"
+              className="flex-1 min-w-[140px] py-2.5 px-2 text-slate-900 placeholder-slate-400 font-medium rounded-xl focus:outline-none bg-transparent"
               aria-label="Termo de busca de interação medicamentosa"
+              autoCapitalize="words"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
             />
 
             {searchTerm && (
@@ -369,7 +329,7 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
               </button>
             )}
 
-            <div className="hidden sm:flex items-center gap-1 px-2 mr-1 text-[10px] font-bold text-slate-400 border border-slate-200 rounded-md py-1 select-none shrink-0">
+            <div className="hidden sm:flex items-center gap-1 px-2 mr-1 text-[10px] font-mono text-slate-400 border border-slate-200 rounded-md py-1 select-none shrink-0">
               <Command className="w-3 h-3" />
               <span>/</span>
             </div>
@@ -377,32 +337,31 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
             <button
               type="submit"
               disabled={!canSearch || isSearchLoading}
-              className="px-5 py-3 rounded-xl bg-lime-400 hover:bg-lime-300 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-slate-950 font-black text-sm flex items-center gap-2 shadow-sm transition-all cursor-pointer shrink-0"
+              className="h-11 px-4 sm:px-5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-semibold text-sm inline-flex items-center gap-2 transition-colors cursor-pointer shrink-0"
             >
               {isSearchLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="hidden sm:inline">Buscando</span>
+                  <span className="hidden sm:inline">Consultando</span>
                 </>
               ) : matrixMode ? (
                 <>
-                  <Layers className="w-4 h-4 stroke-[3]" />
-                  <span>Analisar Matriz</span>
+                  <Layers className="w-4 h-4" />
+                  <span>Analisar matriz</span>
                 </>
               ) : (
                 <>
-                  <Search className="w-4 h-4 stroke-[3]" />
-                  <span>Pesquisar</span>
+                  <Search className="w-4 h-4" />
+                  <span>Consultar</span>
                 </>
               )}
             </button>
           </div>
 
           {isFocused && suggestions.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 text-left overflow-hidden divide-y divide-slate-100">
-              <div className="px-4 py-2 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
-                <span>Sugestões do banco de dados</span>
-                <span className="text-slate-400 normal-case font-medium">Clique para adicionar</span>
+            <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-lg border border-slate-200 z-50 text-left overflow-hidden divide-y divide-slate-100">
+              <div className="px-4 py-2 bg-slate-50 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.14em]">
+                Sugestões do banco
               </div>
               {suggestions.map((name, idx) => (
                 <button
@@ -412,7 +371,7 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
                     e.preventDefault();
                     addChip(name);
                   }}
-                  className="w-full px-4 py-3 flex items-center justify-between text-slate-800 hover:bg-lime-100 hover:text-slate-950 transition-colors text-sm font-bold cursor-pointer"
+                  className="w-full px-4 py-3 flex items-center justify-between text-slate-800 hover:bg-slate-50 hover:text-slate-950 transition-colors font-serif text-[15px] font-medium cursor-pointer"
                 >
                   <span className="inline-flex items-center gap-2">
                     <Plus className="w-4 h-4 text-emerald-600" />
@@ -426,13 +385,13 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
         </form>
 
         {matrixMode && (
-          <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 bg-emerald-100 border border-emerald-300 text-emerald-900 text-[11px] font-bold uppercase tracking-wider rounded-full">
+          <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-semibold uppercase tracking-[0.1em] rounded-full">
             <Layers className="w-3 h-3" />
-            Modo matriz — {chips.length} medicamentos, {(chips.length * (chips.length - 1)) / 2} par(es) analisado(s)
+            Matriz — {chips.length} fármacos · {(chips.length * (chips.length - 1)) / 2} par(es)
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mt-4 text-xs text-slate-500 font-semibold">
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mt-4 text-[12px] text-slate-500">
           <label className="inline-flex items-center gap-2 cursor-pointer select-none">
             <span className="relative inline-flex items-center">
               <input
@@ -444,29 +403,26 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
               <span className="w-9 h-5 bg-slate-300 rounded-full peer-checked:bg-lime-500 transition-colors" />
               <span className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4" />
             </span>
-            <span className="flex items-center gap-1">
+            <span className="inline-flex items-center gap-1 font-medium">
               <Zap className="w-3.5 h-3.5 text-lime-600" />
-              Busca automática em tempo real
+              Consulta automática
             </span>
           </label>
-          <span className="hidden sm:inline text-slate-300">•</span>
-          <span className="text-slate-500 flex items-center gap-1">
+          <span className="hidden sm:inline-flex items-center gap-1.5 font-medium">
             <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono">,</kbd>
             adiciona chip
           </span>
-          <span className="hidden sm:inline text-slate-300">•</span>
-          <span className="text-slate-500">
+          <span className="hidden sm:inline-flex items-center gap-1.5 font-medium">
             <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono">/</kbd>
             foca campo
           </span>
         </div>
 
-        <div className="mt-6">
-          <div className="flex items-center justify-center gap-2 mb-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-            <Flame className="w-3.5 h-3.5 text-orange-500" />
-            <span>Combinações populares</span>
+        <div className="mt-8">
+          <div className="text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.14em] mb-3">
+            Combinações frequentes
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-2 max-w-3xl mx-auto">
+          <div className="flex flex-wrap items-center justify-center gap-1.5">
             {POPULAR_COMBOS.map((q) => (
               <button
                 key={q.label}
@@ -477,13 +433,13 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
                   if (debounceRef.current) clearTimeout(debounceRef.current);
                   executeWith(q.drugs, '');
                 }}
-                className="px-3.5 py-1.5 text-xs font-bold rounded-full bg-white border border-slate-200 text-slate-700 hover:border-emerald-400 hover:bg-emerald-50 hover:text-slate-950 shadow-2xs transition-all cursor-pointer"
+                className="px-3 py-1.5 text-[12.5px] font-serif font-medium rounded-full bg-white border border-slate-200 text-slate-700 hover:border-emerald-400 hover:text-emerald-800 transition-colors cursor-pointer"
               >
                 {q.label}
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-2 max-w-3xl mx-auto mt-2">
+          <div className="flex flex-wrap items-center justify-center gap-1.5 mt-2">
             {POPULAR_SINGLE.map((q) => (
               <button
                 key={q.label}
@@ -494,7 +450,7 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
                   if (debounceRef.current) clearTimeout(debounceRef.current);
                   executeWith([q.term], q.term);
                 }}
-                className="px-3 py-1 text-[11px] font-semibold rounded-full bg-slate-100 text-slate-600 hover:bg-lime-100 hover:text-slate-900 transition-colors cursor-pointer"
+                className="px-2.5 py-1 text-[11.5px] font-mono font-medium rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 {q.label}
               </button>
@@ -503,9 +459,9 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
         </div>
 
         {recent.length > 0 && (
-          <div className="mt-5">
-            <div className="flex items-center justify-center gap-2 mb-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              <Clock className="w-3.5 h-3.5" />
+          <div className="mt-6">
+            <div className="flex items-center justify-center gap-2 mb-2 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.14em]">
+              <Clock className="w-3 h-3" />
               <span>Buscas recentes</span>
               <button
                 type="button"
@@ -515,12 +471,12 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
                   } catch {}
                   setRecent([]);
                 }}
-                className="ml-2 text-[10px] text-slate-400 hover:text-rose-500 underline underline-offset-2 cursor-pointer"
+                className="ml-1 text-[10px] font-normal normal-case tracking-normal text-slate-400 hover:text-rose-500 underline underline-offset-2 cursor-pointer"
               >
                 limpar
               </button>
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-2 max-w-3xl mx-auto">
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
               {recent.map((r) => (
                 <button
                   key={r.term}
@@ -538,9 +494,11 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
                       executeWith([], r.term);
                     }
                   }}
-                  className="px-3 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors cursor-pointer inline-flex items-center gap-1"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11.5px] font-medium rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors cursor-pointer"
                 >
-                  {r.drugs && r.drugs.length > 1 && <Layers className="w-3 h-3 text-emerald-600" />}
+                  {r.drugs && r.drugs.length > 1 && (
+                    <Layers className="w-3 h-3 text-emerald-600" />
+                  )}
                   {r.term}
                 </button>
               ))}
