@@ -182,8 +182,8 @@ export const PrescriptionRewriteModal: React.FC<PrescriptionRewriteModalProps> =
                 <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[13px] font-medium flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <span>
-                    A IA não identificou uma alternativa segura automatizável.
-                    Recomenda-se avaliação médica presencial.
+                    Não foi identificada alternativa segura nas bases científicas
+                    consultadas para este cenário. Recomenda-se avaliação médica presencial.
                   </span>
                 </div>
               )}
@@ -254,14 +254,25 @@ export const PrescriptionRewriteModal: React.FC<PrescriptionRewriteModalProps> =
                 </section>
               )}
 
-              {/* Disclaimer */}
-              <div className="p-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-[11.5px] leading-relaxed flex items-start gap-2">
+              {/* Fontes + validação */}
+              <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-[11.5px] leading-relaxed flex items-start gap-2">
                 <ShieldCheck className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
-                <span>
-                  Sugestão gerada por inteligência artificial baseada em farmacologia clínica de
-                  referência. Toda modificação de prescrição deve ser validada pelo médico
-                  prescritor ou farmacêutico clínico antes de qualquer alteração terapêutica.
-                </span>
+                <div>
+                  <div className="font-semibold text-slate-700 mb-0.5">
+                    Fontes consultadas
+                  </div>
+                  <p>
+                    Sugestão baseada em buscas nas bases científicas de referência
+                    farmacológica —{' '}
+                    <span className="font-mono text-slate-700">
+                      Micromedex · Stockley Drug Interactions · SciELO · PubMed · Anvisa
+                      Bulário Eletrônico · FDA Label · DrugBank
+                    </span>
+                    . Toda modificação de prescrição deve ser validada pelo médico
+                    prescritor ou farmacêutico clínico antes de qualquer alteração
+                    terapêutica.
+                  </p>
+                </div>
               </div>
             </>
           )}
@@ -281,8 +292,9 @@ function LoadingState() {
         Recompondo prescrição…
       </div>
       <p className="text-[13px] text-slate-500 max-w-sm mx-auto leading-relaxed">
-        A IA está buscando uma alternativa da mesma classe terapêutica com via metabólica
-        distinta e reorganizando o cronograma.
+        Consultando bases científicas de referência farmacológica para identificar
+        uma alternativa da mesma classe terapêutica com via metabólica distinta e
+        reorganizar o cronograma.
       </p>
     </div>
   );

@@ -360,7 +360,7 @@ export const CombinationChecker: React.FC<CombinationCheckerProps> = ({
                     className="inline-flex items-center gap-1.5 text-xs font-black text-slate-950 bg-lime-400 hover:bg-lime-300 px-4 py-2 rounded-full transition-all cursor-pointer shadow-2xs"
                   >
                     <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
-                    Obter Orientação IA Completa
+                    Orientação clínica completa
                   </button>
                 </div>
               </div>

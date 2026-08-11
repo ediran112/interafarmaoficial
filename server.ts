@@ -463,8 +463,8 @@ ${question ? `Dúvida específica do usuário: "${question}"` : 'Forneça orient
               answer: text,
               provider: 'openai',
               disclaimer:
-                'Este parecer é gerado por inteligência artificial para fins informativos e educacionais. Não substitui a consulta direta com um médico ou farmacêutico habilitado.',
-              sources: ['Micromedex', 'Stockley Drug Interactions', 'Anvisa Bulário', 'FDA Label'],
+                'Parecer fundamentado em consultas às bases científicas de referência farmacológica (Micromedex, Stockley Drug Interactions, SciELO, PubMed, Anvisa Bulário Eletrônico, FDA Label, DrugBank). Não substitui a consulta direta com um médico ou farmacêutico habilitado.',
+              sources: ['Micromedex', 'Stockley Drug Interactions', 'SciELO', 'PubMed', 'Anvisa Bulário Eletrônico', 'FDA Label', 'DrugBank'],
             });
           }
         } catch (openaiErr: any) {
@@ -489,8 +489,8 @@ ${question ? `Dúvida específica do usuário: "${question}"` : 'Forneça orient
               answer: responseText.trim(),
               provider: 'gemini',
               disclaimer:
-                'Este parecer é gerado por inteligência artificial para fins informativos e educacionais. Não substitui a consulta direta com um médico ou farmacêutico habilitado.',
-              sources: ['Micromedex', 'Stockley Drug Interactions', 'Anvisa Bulário', 'FDA Label'],
+                'Parecer fundamentado em consultas às bases científicas de referência farmacológica (Micromedex, Stockley Drug Interactions, SciELO, PubMed, Anvisa Bulário Eletrônico, FDA Label, DrugBank). Não substitui a consulta direta com um médico ou farmacêutico habilitado.',
+              sources: ['Micromedex', 'Stockley Drug Interactions', 'SciELO', 'PubMed', 'Anvisa Bulário Eletrônico', 'FDA Label', 'DrugBank'],
             });
           }
         } catch (geminiErr: any) {
