@@ -115,3 +115,37 @@ export interface DrugMonograph {
   pharmacokinetics: PharmacokineticsSection;
   administration: AdministrationSection;
 }
+
+// ============================================================================
+// Prescription rewrite — safer alternative for grave interactions
+// ============================================================================
+
+export interface PrescriptionItem {
+  drug: string;
+  dose: string;
+  schedule: string;      // ex: "08:00 e 20:00", "1x/dia às 22:00"
+  indication: string;
+  isReplacement?: boolean;
+  originalDrug?: string; // if replaced, the drug it replaces
+}
+
+export interface Substitution {
+  removed: string;
+  added: string;
+  therapeuticClass: string;
+  reason: string; // pharmacological justification
+}
+
+export interface ScheduleSlot {
+  time: string;    // "08:00"
+  drugs: string[]; // ex: ["Losartana 50mg", "Sinvastatina 20mg"]
+}
+
+export interface PrescriptionRewrite {
+  original: PrescriptionItem[];
+  suggested: PrescriptionItem[];
+  substitutions: Substitution[];
+  schedule: ScheduleSlot[];
+  reasoning: string;
+  warnings: string[];
+}

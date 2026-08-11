@@ -19,6 +19,7 @@ import { AIAdvisorModal } from './components/AIAdvisorModal';
 import { SavedChecks } from './components/SavedChecks';
 import { SafetyGuide } from './components/SafetyGuide';
 import { DrugMonograph } from './components/DrugMonograph';
+import { PrescriptionRewriteModal } from './components/PrescriptionRewriteModal';
 import { Pill, AlertCircle, RefreshCw, Search, Zap } from 'lucide-react';
 
 export default function App() {
@@ -38,6 +39,18 @@ export default function App() {
   const [isMonographLoading, setIsMonographLoading] = useState(false);
   const monographAbortRef = useRef<AbortController | null>(null);
   const [monographTab, setMonographTab] = useState<'interactions' | 'monograph'>('monograph');
+
+  // Current prescription context — the list of drugs the user is looking at
+  // (chips in matrix mode, or single drug otherwise). Used by the rewrite modal.
+  const [currentDrugList, setCurrentDrugList] = useState<string[]>([]);
+
+  // Prescription rewrite modal
+  const [rewritePair, setRewritePair] = useState<[string, string] | null>(null);
+  const [isRewriteOpen, setIsRewriteOpen] = useState(false);
+  const handleSuggestRewrite = (drugA: string, drugB: string) => {
+    setRewritePair([drugA, drugB]);
+    setIsRewriteOpen(true);
+  };
 
   const fetchMonograph = async (drug: string) => {
     if (monographAbortRef.current) monographAbortRef.current.abort();
@@ -92,6 +105,9 @@ export default function App() {
 
     setSearchExecutedTerm(term);
     setIsSearchLoading(true);
+
+    // Remember the current query as the prescription context for the rewrite modal
+    setCurrentDrugList(drugs && drugs.length > 0 ? drugs : term ? [term] : []);
 
     // Fire monograph fetch in parallel when the query looks like a single drug
     const monoDrug = shouldFetchMonograph(drugs, term);
@@ -455,6 +471,7 @@ export default function App() {
                       key={item.id}
                       interaction={item}
                       onAskAIAdvice={handleOpenAI}
+                      onSuggestRewrite={handleSuggestRewrite}
                       onSaveInteraction={(interactionItem) => {
                         handleSaveCheck(
                           [interactionItem.drugA, interactionItem.drugB],
@@ -547,6 +564,19 @@ export default function App() {
         initialDrugA={aiInitialDrugA}
         initialDrugB={aiInitialDrugB}
         allDrugNames={allDrugNames}
+      />
+
+      <PrescriptionRewriteModal
+        isOpen={isRewriteOpen}
+        onClose={() => setIsRewriteOpen(false)}
+        drugs={
+          currentDrugList.length >= 2
+            ? currentDrugList
+            : rewritePair
+            ? [rewritePair[0], rewritePair[1]]
+            : []
+        }
+        conflictingPair={rewritePair}
       />
 
     </div>

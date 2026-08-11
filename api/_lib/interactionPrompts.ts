@@ -298,6 +298,145 @@ export function normalizeMonograph(raw: any): any {
   };
 }
 
+// ============================================================================
+// Prescription rewrite — generate safer alternative when a grave interaction is
+// detected. Substitutes the conflicting drug for one in the same therapeutic
+// class with a distinct metabolic pathway, keeps others intact and reflows
+// the schedule.
+// ============================================================================
+
+const REWRITE_SCHEMA = `SCHEMA JSON OBRIGATÓRIO (retorne SEMPRE {"rewrite": { ... }}):
+{
+  "rewrite": {
+    "original": [
+      {"drug": "DCB", "dose": "Dose e via (ex: '5 mg VO')", "schedule": "Horários (ex: '22:00')", "indication": "Indicação clínica em UMA frase"}
+    ],
+    "suggested": [
+      {"drug": "DCB", "dose": "Dose e via", "schedule": "Horários", "indication": "Indicação", "isReplacement": true, "originalDrug": "DCB que foi substituído"},
+      {"drug": "DCB (mantido)", "dose": "...", "schedule": "...", "indication": "...", "isReplacement": false}
+    ],
+    "substitutions": [
+      {"removed": "DCB do fármaco removido", "added": "DCB do fármaco substituto", "therapeuticClass": "Classe compartilhada (ex: 'Benzodiazepínico')", "reason": "Justificativa farmacológica em UMA frase (ex: 'sofre glicuronidação por UGT, sem interferência do CYP3A4 inibido pelo Ritonavir')"}
+    ],
+    "schedule": [
+      {"time": "08:00", "drugs": ["Nome fármaco + dose", "Outro fármaco + dose"]},
+      {"time": "12:00", "drugs": ["..."]},
+      {"time": "20:00", "drugs": ["..."]}
+    ],
+    "reasoning": "Resumo em 1-2 frases da lógica da recomposição — o que foi trocado e por quê.",
+    "warnings": ["Considerações residuais relevantes (ex: 'Lorazepam ainda pode causar sedação aditiva com opioides — monitorar SpO2')"]
+  }
+}`;
+
+const REWRITE_DIRECTIVES = `DIRETRIZES OBRIGATÓRIAS:
+
+1. SUBSTITUIR APENAS UM DO PAR CONFLITANTE
+   Escolha o fármaco do par que tem MAIS alternativas terapêuticas equivalentes.
+   Mantenha o outro. Os fármacos externos ao par permanecem TODOS intactos.
+
+2. ALTERNATIVA NOMEADA + JUSTIFICATIVA FARMACOLÓGICA
+   Substitua por um princípio ativo NOMEADO da MESMA CLASSE terapêutica que:
+   a) Trate a mesma indicação clínica.
+   b) NÃO tenha interação grave com nenhum outro fármaco da lista.
+   c) Tenha via metabólica DISTINTA daquela envolvida no conflito.
+   Justifique em UMA frase (ex: "metabolismo por UGT independente do CYP3A4 inibido pelo Ritonavir").
+
+3. AJUSTE DE HORÁRIOS
+   No cronograma sugerido, considere:
+   - Espaçamento entre fármacos com quelação (bifosfonatos, tetraciclinas, fluoroquinolonas + cálcio/ferro): mínimo 2 h.
+   - Jejum obrigatório: separe do café da manhã por 30-60 min.
+   - Fármacos que causam sonolência agrupados à noite.
+   - Antibióticos em intervalos regulares (8/8h, 12/12h).
+   - Diuréticos preferencialmente pela manhã.
+   Use horários específicos: "08:00", "12:00", "20:00" — não "manhã" ou "noite".
+
+4. SE NÃO HOUVER ALTERNATIVA SEGURA
+   Retorne "substitutions": [] e explique em "reasoning" o motivo (ex: "todas as alternativas testadas mantêm interação grave com os fármacos da lista — recomenda-se avaliação médica presencial").
+
+5. TEXTOS CURTOS E ACIONÁVEIS
+   Cada campo deve ser lido em < 5s. Frases diretas, verbos no imperativo/infinitivo.`;
+
+export function buildRewriteSystemPrompt(): string {
+  return `Você é um farmacologista clínico especializado em prescrição racional e reconciliação medicamentosa da plataforma Interafarma.
+
+Sua tarefa: dado uma lista de medicamentos em uso e um PAR que apresenta interação GRAVE, gere uma prescrição alternativa segura e um cronograma integrado.
+
+${REWRITE_DIRECTIVES}
+
+${REWRITE_SCHEMA}`;
+}
+
+export function buildRewriteUserPrompt(
+  drugs: string[],
+  conflictingPair: [string, string],
+  indication?: string
+): string {
+  return `Prescrição atual (todos os fármacos em uso pelo paciente):
+${drugs.map((d) => `- ${d}`).join('\n')}
+
+Par com interação GRAVE identificada:
+- ${conflictingPair[0]}  ×  ${conflictingPair[1]}
+${indication ? `\nContexto clínico informado: "${indication}"` : ''}
+
+Gere:
+1. "original" reproduzindo a lista atual com dose padrão adulto, horário sugerido e indicação provável de cada fármaco.
+2. "suggested" com a substituição de UM dos fármacos do par conflitante por uma alternativa segura, mantendo os demais.
+3. "substitutions" descrevendo a troca com justificativa farmacológica.
+4. "schedule" com o cronograma integrado 24h da prescrição sugerida.
+5. "reasoning" sumarizando a decisão em 1-2 frases.
+6. "warnings" com precauções residuais quando aplicável.
+
+Formato: JSON puro conforme schema, começando com {"rewrite": ...`;
+}
+
+export function normalizeRewrite(raw: any): any {
+  if (!raw || typeof raw !== 'object') return null;
+  const source = raw.rewrite || raw;
+  const asStr = (v: any, f = ''): string =>
+    typeof v === 'string' && v.trim() ? v.trim() : f;
+  const asArr = (v: any): any[] => (Array.isArray(v) ? v : []);
+  const asStrArr = (v: any): string[] =>
+    asArr(v).filter(Boolean).map((x) => String(x).trim());
+
+  const normalizeItem = (it: any) => ({
+    drug: asStr(it?.drug),
+    dose: asStr(it?.dose),
+    schedule: asStr(it?.schedule),
+    indication: asStr(it?.indication),
+    isReplacement: Boolean(it?.isReplacement),
+    originalDrug: asStr(it?.originalDrug),
+  });
+
+  const original = asArr(source.original).map(normalizeItem).filter((x) => x.drug);
+  const suggested = asArr(source.suggested).map(normalizeItem).filter((x) => x.drug);
+
+  const substitutions = asArr(source.substitutions)
+    .map((s: any) => ({
+      removed: asStr(s?.removed),
+      added: asStr(s?.added),
+      therapeuticClass: asStr(s?.therapeuticClass || s?.class),
+      reason: asStr(s?.reason),
+    }))
+    .filter((s) => s.removed || s.added);
+
+  const schedule = asArr(source.schedule)
+    .map((s: any) => ({
+      time: asStr(s?.time),
+      drugs: asStrArr(s?.drugs),
+    }))
+    .filter((s) => s.time && s.drugs.length > 0)
+    .sort((a, b) => a.time.localeCompare(b.time));
+
+  return {
+    original,
+    suggested,
+    substitutions,
+    schedule,
+    reasoning: asStr(source.reasoning),
+    warnings: asStrArr(source.warnings),
+  };
+}
+
 // Normalize AI results to guarantee shape stability (fill missing fields, coerce arrays, etc.)
 export function normalizeResults(rawResults: any[], provider: string): any[] {
   const t = Date.now();

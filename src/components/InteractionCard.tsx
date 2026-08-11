@@ -19,6 +19,7 @@ import {
   Beaker,
   Sparkle,
   MessageCircle,
+  Wand2,
 } from 'lucide-react';
 import { DrugInteraction } from '../types';
 
@@ -26,6 +27,7 @@ interface InteractionCardProps {
   interaction: DrugInteraction;
   onSaveInteraction?: (interaction: DrugInteraction) => void;
   onAskAIAdvice: (drugA: string, drugB: string) => void;
+  onSuggestRewrite?: (drugA: string, drugB: string) => void;
   isSaved?: boolean;
 }
 
@@ -64,6 +66,7 @@ export const InteractionCard: React.FC<InteractionCardProps> = ({
   interaction,
   onSaveInteraction,
   onAskAIAdvice,
+  onSuggestRewrite,
   isSaved = false,
 }) => {
   const [expanded, setExpanded] = useState(false);
@@ -160,6 +163,17 @@ Recomendação: ${interaction.recommendation}`;
               {interaction.recommendation}
             </p>
           </div>
+
+          {interaction.severity === 'Grave' && onSuggestRewrite && (
+            <button
+              type="button"
+              onClick={() => onSuggestRewrite(interaction.drugA, interaction.drugB)}
+              className="mt-3 w-full sm:w-auto inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-[13px] font-semibold shadow-sm transition-colors cursor-pointer"
+            >
+              <Wand2 className="w-4 h-4" />
+              <span>Sugerir prescrição alternativa</span>
+            </button>
+          )}
         </div>
 
         {/* Action row */}

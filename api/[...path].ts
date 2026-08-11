@@ -33,6 +33,9 @@ async function loadApp() {
       buildMonographSystemPrompt,
       buildMonographUserPrompt,
       normalizeMonograph,
+      buildRewriteSystemPrompt,
+      buildRewriteUserPrompt,
+      normalizeRewrite,
     } = promptsMod;
 
     if (!process.env.VERCEL) {
@@ -210,6 +213,64 @@ async function loadApp() {
       } catch (error: any) {
         console.error('Monograph error:', error);
         return res.status(500).json({ error: 'Erro na monografia', details: error?.message });
+      }
+    });
+
+    app.post(['/api/prescription-rewrite', '/prescription-rewrite'], async (req: any, res: any) => {
+      try {
+        const drugs = Array.isArray(req.body?.drugs)
+          ? req.body.drugs.filter((d: any) => typeof d === 'string' && d.trim())
+          : [];
+        const pair = Array.isArray(req.body?.conflictingPair) ? req.body.conflictingPair : [];
+        const indication = typeof req.body?.indication === 'string' ? req.body.indication.trim() : '';
+        if (drugs.length < 2 || pair.length !== 2) {
+          return res.status(400).json({ error: 'Informe pelo menos 2 medicamentos e o par conflitante.' });
+        }
+
+        const openai = getOpenAIClient();
+        if (openai) {
+          try {
+            const systemMsg = buildRewriteSystemPrompt();
+            const userMsg = buildRewriteUserPrompt(drugs, [String(pair[0]), String(pair[1])], indication);
+            let completion: any;
+            try {
+              completion = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                response_format: { type: 'json_object' },
+                messages: [
+                  { role: 'system', content: systemMsg },
+                  { role: 'user', content: userMsg },
+                ],
+                temperature: 0.15,
+                max_tokens: 3000,
+              });
+            } catch (miniErr: any) {
+              console.warn('gpt-4o-mini rewrite failed, fallback to gpt-3.5-turbo:', miniErr?.message);
+              completion = await openai.chat.completions.create({
+                model: 'gpt-3.5-turbo',
+                response_format: { type: 'json_object' },
+                messages: [
+                  { role: 'system', content: systemMsg },
+                  { role: 'user', content: userMsg },
+                ],
+                temperature: 0.2,
+              });
+            }
+            const rawText = completion.choices[0]?.message?.content?.trim() || '{}';
+            const parsed = JSON.parse(rawText);
+            const rewrite = normalizeRewrite(parsed);
+            if (rewrite) {
+              return res.json({ rewrite, provider: 'openai', drugs, conflictingPair: pair });
+            }
+          } catch (openaiErr: any) {
+            console.error('OpenAI rewrite error:', openaiErr?.status, openaiErr?.message);
+          }
+        }
+
+        return res.status(503).json({ error: 'Serviço temporariamente indisponível.' });
+      } catch (error: any) {
+        console.error('Rewrite error:', error);
+        return res.status(500).json({ error: 'Erro ao gerar prescrição alternativa', details: error?.message });
       }
     });
 
