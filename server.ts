@@ -344,13 +344,32 @@ async function startServer() {
   // AI Orientação Farmacêutica Endpoint
   app.post('/api/ai-advice', async (req, res) => {
     try {
-      const { drugs, question } = req.body;
-
-      if (!drugs || !Array.isArray(drugs) || drugs.length === 0) {
-        return res.status(400).json({ error: 'É necessário informar ao menos um medicamento.' });
+      const drugs = Array.isArray(req.body?.drugs)
+        ? req.body.drugs.filter((d: any) => typeof d === 'string' && d.trim())
+        : [];
+      const question = typeof req.body?.question === 'string' ? req.body.question.trim() : '';
+      if (drugs.length === 0) {
+        return res.status(400).json({ error: 'Informe ao menos um medicamento.' });
       }
 
-      // 1. Try OpenAI if key is available
+      const systemMsg = `Você é um farmacologista clínico especialista da plataforma Interafarma.
+Gere um parecer orientativo em Português do Brasil sobre os medicamentos informados.
+
+DIRETRIZES OBRIGATÓRIAS:
+- Texto corrido em 3-4 parágrafos curtos, cada um com foco distinto.
+- Estrutura sugerida:
+  1) Perfil de risco da combinação em uma frase inicial forte.
+  2) Cuidados práticos e horários de administração.
+  3) Sinais de alerta que o paciente/cuidador deve observar.
+  4) Quando procurar médico/farmacêutico imediatamente.
+- Termos precisos, sem 'usar com cautela' vazio. Cite valores, horários, sintomas específicos.
+- Tom acolhedor mas técnico. Sem preâmbulos, sem 'olá', sem despedidas.
+- Se houver dúvida específica do usuário, responda-a diretamente antes dos cuidados gerais.
+- Máximo 350 palavras.`;
+
+      const userMsg = `Medicamentos em análise: ${drugs.join(', ')}.
+${question ? `Dúvida específica do usuário: "${question}"` : 'Forneça orientações gerais de segurança para o uso combinado.'}`;
+
       const openai = getOpenAIClient();
       if (openai) {
         try {
@@ -359,96 +378,72 @@ async function startServer() {
             completion = await openai.chat.completions.create({
               model: 'gpt-4o-mini',
               messages: [
-                {
-                  role: 'system',
-                  content: 'Você é o assistente virtual especializado em Farmacologia da plataforma Interafarma. Forneça orientações farmacêuticas em Português claras, objetivas e em texto corrido.'
-                },
-                {
-                  role: 'user',
-                  content: `Medicamentos em análise: ${drugs.join(', ')}. ${question ? `Dúvida: "${question}"` : 'Forneça orientações de segurança.'}`
-                }
+                { role: 'system', content: systemMsg },
+                { role: 'user', content: userMsg },
               ],
-              temperature: 0.4,
+              temperature: 0.35,
+              max_tokens: 900,
             });
           } catch (mErr: any) {
-            console.warn('gpt-4o-mini advice call failed in server.ts, fallback to gpt-3.5-turbo:', mErr.message || mErr);
+            console.warn('gpt-4o-mini advice failed, fallback to gpt-3.5-turbo:', mErr.message || mErr);
             completion = await openai.chat.completions.create({
               model: 'gpt-3.5-turbo',
               messages: [
-                {
-                  role: 'system',
-                  content: 'Você é o assistente virtual especializado em Farmacologia da plataforma Interafarma. Forneça orientações farmacêuticas em Português claras, objetivas e em texto corrido.'
-                },
-                {
-                  role: 'user',
-                  content: `Medicamentos em análise: ${drugs.join(', ')}. ${question ? `Dúvida: "${question}"` : 'Forneça orientações de segurança.'}`
-                }
+                { role: 'system', content: systemMsg },
+                { role: 'user', content: userMsg },
               ],
               temperature: 0.4,
             });
           }
-
-          const text = completion.choices[0]?.message?.content || 'Não foi possível gerar a orientação farmacêutica no momento.';
-
-          return res.json({
-            answer: text,
-            provider: 'openai',
-            disclaimer: 'Atenção: Esta orientação é gerada por inteligência artificial (OpenAI ChatGPT) para fins informativos e educacionais. Não substitui a consulta direta com um Farmacêutico ou Médico especialista.',
-            sources: ['Anvisa / Bulário Eletrônico', 'Micromedex Drug Interactions Guide', 'Interafarma Database']
-          });
+          const text = completion.choices[0]?.message?.content?.trim() || '';
+          if (text) {
+            return res.json({
+              answer: text,
+              provider: 'openai',
+              disclaimer:
+                'Este parecer é gerado por inteligência artificial para fins informativos e educacionais. Não substitui a consulta direta com um médico ou farmacêutico habilitado.',
+              sources: ['Micromedex', 'Stockley Drug Interactions', 'Anvisa Bulário', 'FDA Label'],
+            });
+          }
         } catch (openaiErr: any) {
-          console.error('OpenAI AI advice error in server.ts:', openaiErr.status || '', openaiErr.message || openaiErr);
+          console.error('OpenAI advice error in server.ts:', openaiErr.status || '', openaiErr.message || openaiErr);
         }
       }
 
-      // 2. Try Gemini
       const ai = getGeminiClient();
       if (ai) {
-        const prompt = `
-Você é o assistente virtual especializado em Farmacologia e Segurança de Medicamentos da plataforma "Interafarma".
-Sua tarefa é fornecer orientações farmacêuticas claras, educativas e estritamente profissionais em Português sobre os medicamentos pesquisados.
-
-Medicamentos em análise: ${drugs.join(', ')}
-${question ? `Dúvida do usuário: "${question}"` : 'Orientação solicitada sobre segurança e combinações.'}
-
-Instruções:
-1. Explique os cuidados principais e possíveis riscos de interação de forma fácil de entender para um leigo ou profissional de saúde.
-2. Destaque precauções com alimentos, bebidas alcoólicas e horários de tomada.
-3. Forneça conselhos de segurança de manejo imediato (ex: tomar com alimentos, não interromper abruptamente).
-4. Mantenha um tom acolhedor, objetivo e confiável.
-5. Mantenha a resposta com cerca de 3 a 4 parágrafos bem estruturados.
-`;
-
-        let responseText = '';
         try {
-          const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-          });
-          responseText = response.text || '';
-        } catch (err25) {
-          const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: prompt,
-          });
-          responseText = response.text || '';
+          const geminiPrompt = `${systemMsg}\n\n${userMsg}`;
+          let responseText = '';
+          try {
+            const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: geminiPrompt });
+            responseText = response.text || '';
+          } catch {
+            const response = await ai.models.generateContent({ model: 'gemini-2.0-flash', contents: geminiPrompt });
+            responseText = response.text || '';
+          }
+          if (responseText.trim()) {
+            return res.json({
+              answer: responseText.trim(),
+              provider: 'gemini',
+              disclaimer:
+                'Este parecer é gerado por inteligência artificial para fins informativos e educacionais. Não substitui a consulta direta com um médico ou farmacêutico habilitado.',
+              sources: ['Micromedex', 'Stockley Drug Interactions', 'Anvisa Bulário', 'FDA Label'],
+            });
+          }
+        } catch (geminiErr: any) {
+          console.warn('Gemini advice error:', geminiErr.message || geminiErr);
         }
-
-        const text = responseText || 'Não foi possível gerar a orientação farmacêutica no momento.';
-
-        return res.json({
-          answer: text,
-          disclaimer: 'Atenção: Esta orientação é gerada por inteligência artificial para fins informativos e educacionais. Não substitui a consulta direta com um Farmacêutico ou Médico especialista.',
-          sources: ['Anvisa / Bulário Eletrônico', 'Micromedex Drug Interactions Guide', 'Interafarma Database']
-        });
       }
 
-      return res.status(500).json({ error: 'Nenhum serviço de IA disponível no momento.' });
+      return res.status(503).json({
+        error: 'Serviço de orientação temporariamente indisponível. Tente novamente em alguns instantes.',
+      });
     } catch (error: any) {
       console.error('Error in /api/ai-advice:', error);
-      res.status(500).json({ 
-        error: 'Erro ao gerar orientação da IA.', 
-        details: error.message || 'Verifique a chave de API ou tente novamente.' 
+      return res.status(500).json({
+        error: 'Erro ao gerar orientação.',
+        details: error.message || 'Verifique a chave de API ou tente novamente.',
       });
     }
   });

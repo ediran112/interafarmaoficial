@@ -213,6 +213,81 @@ async function loadApp() {
       }
     });
 
+    app.post(['/api/ai-advice', '/ai-advice'], async (req: any, res: any) => {
+      try {
+        const drugs = Array.isArray(req.body?.drugs) ? req.body.drugs.filter((d: any) => typeof d === 'string' && d.trim()) : [];
+        const question = typeof req.body?.question === 'string' ? req.body.question.trim() : '';
+        if (drugs.length === 0) {
+          return res.status(400).json({ error: 'Informe ao menos um medicamento.' });
+        }
+
+        const openai = getOpenAIClient();
+        if (openai) {
+          try {
+            const systemMsg = `Você é um farmacologista clínico especialista da plataforma Interafarma.
+Gere um parecer orientativo em Português do Brasil sobre os medicamentos informados.
+
+DIRETRIZES OBRIGATÓRIAS:
+- Texto corrido em 3-4 parágrafos curtos, cada um com foco distinto.
+- Estrutura sugerida:
+  1) Perfil de risco da combinação em uma frase inicial forte.
+  2) Cuidados práticos e horários de administração.
+  3) Sinais de alerta que o paciente/cuidador deve observar.
+  4) Quando procurar médico/farmacêutico imediatamente.
+- Termos precisos, sem 'usar com cautela' vazio. Cite valores, horários, sintomas específicos.
+- Tom acolhedor mas técnico. Sem preâmbulos, sem 'olá', sem despedidas.
+- Se houver dúvida específica do usuário, responda-a diretamente antes dos cuidados gerais.
+- Máximo 350 palavras.`;
+
+            const userMsg = `Medicamentos em análise: ${drugs.join(', ')}.
+${question ? `Dúvida específica do usuário: "${question}"` : 'Forneça orientações gerais de segurança para o uso combinado.'}`;
+
+            let completion: any;
+            try {
+              completion = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [
+                  { role: 'system', content: systemMsg },
+                  { role: 'user', content: userMsg },
+                ],
+                temperature: 0.35,
+                max_tokens: 900,
+              });
+            } catch (miniErr: any) {
+              console.warn('gpt-4o-mini advice failed, fallback to gpt-3.5-turbo:', miniErr?.message);
+              completion = await openai.chat.completions.create({
+                model: 'gpt-3.5-turbo',
+                messages: [
+                  { role: 'system', content: systemMsg },
+                  { role: 'user', content: userMsg },
+                ],
+                temperature: 0.4,
+              });
+            }
+            const text = completion.choices[0]?.message?.content?.trim() || '';
+            if (text) {
+              return res.json({
+                answer: text,
+                provider: 'openai',
+                disclaimer:
+                  'Este parecer é gerado por inteligência artificial para fins informativos e educacionais. Não substitui a consulta direta com um médico ou farmacêutico habilitado.',
+                sources: ['Micromedex', 'Stockley Drug Interactions', 'Anvisa Bulário', 'FDA Label'],
+              });
+            }
+          } catch (openaiErr: any) {
+            console.error('OpenAI advice error:', openaiErr?.status, openaiErr?.message);
+          }
+        }
+
+        return res.status(503).json({
+          error: 'Serviço de orientação temporariamente indisponível. Tente novamente em alguns instantes.',
+        });
+      } catch (error: any) {
+        console.error('Advice error:', error);
+        return res.status(500).json({ error: 'Erro ao gerar orientação', details: error?.message });
+      }
+    });
+
     cachedApp = app;
     return app;
   } catch (err: any) {
