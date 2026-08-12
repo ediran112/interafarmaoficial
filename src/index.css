@@ -18,7 +18,6 @@
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
     scroll-behavior: smooth;
-    /* Prevents iOS from auto-zooming on input focus while keeping accessibility */
     text-size-adjust: 100%;
   }
 
@@ -26,19 +25,15 @@
     font-family: var(--font-sans);
     background-color: #f8fafc;
     color: #0f172a;
-    /* Respect iPhone safe areas at the app root */
     padding: env(safe-area-inset-top) env(safe-area-inset-right)
       env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
 
-  /* Serif family carries a subtle contrast that reads as "clinical/editorial",
-     not "brand tech" — used sparingly on hero titles and drug names. */
   .font-serif {
     font-feature-settings: "ss01", "kern", "liga";
     letter-spacing: -0.015em;
   }
 
-  /* Ensures inputs on iOS keep a >=16px effective size so Safari doesn't zoom */
   input,
   select,
   textarea {
@@ -49,19 +44,6 @@
     select,
     textarea {
       font-size: inherit;
-    }
-  }
-
-  /* Print stylesheet — clean output for clinical reports */
-  @media print {
-    body {
-      background: #fff !important;
-      color: #000 !important;
-    }
-    header,
-    footer,
-    button {
-      display: none !important;
     }
   }
 }
@@ -77,11 +59,9 @@
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
   }
-  /* Prevents anchored content from being hidden behind iPhone home indicator */
   .pb-safe {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
-  /* Fluid heading scale using clamp — grows with viewport within limits */
   .text-fluid-display {
     font-size: clamp(1.875rem, 1.2rem + 3.5vw, 3.5rem);
     line-height: 1.05;
@@ -94,10 +74,137 @@
     font-size: clamp(0.9375rem, 0.85rem + 0.4vw, 1.0625rem);
     line-height: 1.55;
   }
-  /* Subtle rule character used between metadata items */
   .rule-dot::before {
     content: "•";
     margin: 0 0.5rem;
     color: rgb(148 163 184);
+  }
+}
+
+/* ============================================================================
+   PRINT STYLESHEET
+   Layout profissional para "Salvar como PDF" via Ctrl+P / Cmd+P.
+   Objetivo: gerar documento anexável em prontuário com cabeçalho clínico,
+   fármacos consultados, resultados expandidos e disclaimer no rodapé.
+   ========================================================================== */
+@media print {
+  /* Reset de fundo/cor pra economizar tinta e manter contraste */
+  * {
+    background: transparent !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 10.5pt;
+    line-height: 1.4;
+  }
+
+  /* Página A4 com margens confortáveis */
+  @page {
+    size: A4 portrait;
+    margin: 14mm 14mm 18mm 14mm;
+  }
+
+  /* Esconde elementos interativos/navegação */
+  header,
+  footer,
+  nav,
+  [role="tablist"],
+  button,
+  input,
+  select,
+  textarea,
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Esconde toda a search hero e modais */
+  section:first-of-type,
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  /* Mostra elementos marcados como print-only */
+  .print\\:block {
+    display: block !important;
+  }
+
+  .print\\:flex {
+    display: flex !important;
+  }
+
+  .print\\:grid {
+    display: grid !important;
+  }
+
+  /* Cards e blocos — evitar quebra de página no meio */
+  article,
+  section,
+  .print-card {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    border: 1px solid #cbd5e1 !important;
+    background: #fff !important;
+    margin-bottom: 8mm;
+  }
+
+  h1, h2, h3 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* Preserva algumas cores essenciais para hierarquia clínica */
+  .print-severity-grave {
+    background: #fef2f2 !important;
+    border-left: 3px solid #dc2626 !important;
+  }
+  .print-severity-moderada {
+    background: #fffbeb !important;
+    border-left: 3px solid #f59e0b !important;
+  }
+  .print-severity-leve {
+    background: #f0f9ff !important;
+    border-left: 3px solid #0ea5e9 !important;
+  }
+  .print-rescue {
+    background: #fef2f2 !important;
+    border: 1px solid #fca5a5 !important;
+  }
+
+  /* Aviso clínico no rodapé de cada página */
+  .print-footer {
+    display: block !important;
+    position: fixed;
+    bottom: 5mm;
+    left: 14mm;
+    right: 14mm;
+    font-size: 8pt;
+    color: #475569 !important;
+    text-align: center;
+    border-top: 1px solid #cbd5e1;
+    padding-top: 2mm;
+  }
+
+  /* Links exibem URL entre parênteses */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 8pt;
+    color: #64748b !important;
+  }
+
+  /* Enforce card interior fica dentro da página */
+  .print-expand {
+    display: block !important;
   }
 }

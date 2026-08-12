@@ -90,8 +90,15 @@ Recomendação: ${interaction.recommendation}`;
     } catch {}
   };
 
+  const printSeverityClass =
+    interaction.severity === 'Grave'
+      ? 'print-severity-grave'
+      : interaction.severity === 'Moderada'
+      ? 'print-severity-moderada'
+      : 'print-severity-leve';
+
   return (
-    <article className="bg-white rounded-2xl border border-slate-200 hover:border-slate-300 transition-colors overflow-hidden">
+    <article className={`bg-white rounded-2xl border border-slate-200 hover:border-slate-300 transition-colors overflow-hidden ${printSeverityClass}`}>
       {/* Severity accent bar */}
       <div className={`h-0.5 w-full ${severity.bar}`} />
 
@@ -266,10 +273,13 @@ Recomendação: ${interaction.recommendation}`;
         </div>
       </div>
 
-      {expanded && (
-        <div className="border-t border-slate-100 bg-slate-50/60 px-5 sm:px-6 py-5">
+      <div
+        className={`border-t border-slate-100 bg-slate-50/60 px-5 sm:px-6 py-5 ${
+          expanded ? 'block' : 'hidden print:block'
+        }`}
+      >
           {interaction.rescueProtocol && (
-            <div className="mb-3 bg-rose-50 border border-rose-200 rounded-xl p-4">
+            <div className="mb-3 bg-rose-50 border border-rose-200 rounded-xl p-4 print-rescue">
               <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-rose-800 mb-2">
                 <Siren className="w-3.5 h-3.5" />
                 Protocolo de resgate — se o evento adverso ocorrer
@@ -364,7 +374,6 @@ Recomendação: ${interaction.recommendation}`;
             )}
           </div>
         </div>
-      )}
     </article>
   );
 };

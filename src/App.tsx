@@ -20,7 +20,8 @@ import { SavedChecks } from './components/SavedChecks';
 import { SafetyGuide } from './components/SafetyGuide';
 import { DrugMonograph } from './components/DrugMonograph';
 import { PrescriptionRewriteModal } from './components/PrescriptionRewriteModal';
-import { Pill, AlertCircle, RefreshCw, Search, Zap } from 'lucide-react';
+import { ClinicalDisclaimer } from './components/ClinicalDisclaimer';
+import { Pill, AlertCircle, RefreshCw, Search, Zap, Printer } from 'lucide-react';
 
 export default function App() {
   const [interactions, setInteractions] = useState<DrugInteraction[]>([]);
@@ -50,6 +51,12 @@ export default function App() {
   const handleSuggestRewrite = (drugA: string, drugB: string) => {
     setRewritePair([drugA, drugB]);
     setIsRewriteOpen(true);
+  };
+
+  // Print / Save as PDF — user hits print, chooses "Save as PDF" in the dialog
+  const handlePrint = () => {
+    // Give the browser a tick to apply @media print styles before invoking dialog
+    setTimeout(() => window.print(), 50);
   };
 
   const fetchMonograph = async (drug: string) => {
@@ -283,6 +290,9 @@ export default function App() {
         savedCount={savedChecks.length}
       />
 
+      {/* AVISO CLINICO PERMANENTE */}
+      <ClinicalDisclaimer />
+
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 pb-16">
         
@@ -447,7 +457,49 @@ export default function App() {
                 </div>
               ) : (
                 <div className="space-y-3 sm:space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[12px] text-slate-500">
+                  {/* Cabeçalho de impressão — visível apenas em PDF */}
+                  <div className="hidden print:block mb-6 pb-4 border-b-2 border-slate-900">
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-900 text-lime-400 flex items-center justify-center">
+                          <Pill className="w-5 h-5 stroke-[2.5]" />
+                        </div>
+                        <div>
+                          <div className="font-serif text-xl font-semibold text-slate-900">
+                            Interafarma
+                          </div>
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-slate-600">
+                            Análise de interações medicamentosas
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right text-[10px] text-slate-600">
+                        <div>
+                          <strong>Data/hora:</strong>{' '}
+                          {new Date().toLocaleString('pt-BR')}
+                        </div>
+                        <div>interafarmaoficial.vercel.app</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-[11px] text-slate-800 mt-2">
+                      <div>
+                        <span className="text-slate-500 uppercase tracking-[0.1em] text-[9px] font-semibold block">
+                          Consulta
+                        </span>
+                        <span className="font-serif italic">{searchExecutedTerm}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 uppercase tracking-[0.1em] text-[9px] font-semibold block">
+                          Interações identificadas
+                        </span>
+                        <span className="font-mono">
+                          {filteredInteractions.length}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[12px] text-slate-500 print:hidden">
                     <span className="inline-flex items-center gap-1.5">
                       <span>Resultado para</span>
                       <span className="font-serif italic text-slate-900">
@@ -460,10 +512,22 @@ export default function App() {
                         </span>
                       )}
                     </span>
-                    <span className="font-mono text-[11px] text-slate-400">
-                      {filteredInteractions.length}{' '}
-                      {filteredInteractions.length === 1 ? 'interação' : 'interações'}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handlePrint}
+                        title="Imprimir ou salvar como PDF"
+                        aria-label="Imprimir ou salvar como PDF"
+                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-white border border-slate-300 hover:border-slate-500 hover:bg-slate-50 text-slate-700 hover:text-slate-950 text-[12px] font-semibold transition-colors cursor-pointer"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Imprimir / PDF</span>
+                      </button>
+                      <span className="font-mono text-[11px] text-slate-400">
+                        {filteredInteractions.length}{' '}
+                        {filteredInteractions.length === 1 ? 'interação' : 'interações'}
+                      </span>
+                    </div>
                   </div>
 
                   {filteredInteractions.map((item) => (
@@ -515,9 +579,26 @@ export default function App() {
           />
         )}
 
+        {/* Rodapé exclusivo do PDF — aparece só na impressão */}
+        <div className="hidden print:block mt-8 pt-3 border-t border-slate-400 text-[9px] text-slate-700 leading-relaxed">
+          <p className="mb-1">
+            <strong>Aviso clínico:</strong> Ferramenta de apoio à decisão clínica com fins
+            educacionais. Não substitui o julgamento clínico do profissional habilitado nem
+            constitui dispositivo médico registrado. Toda decisão terapêutica deve considerar
+            o quadro clínico completo do paciente.
+          </p>
+          <p>
+            <strong>Fontes consultadas:</strong> Micromedex · Stockley Drug Interactions ·
+            SciELO · PubMed · Anvisa Bulário Eletrônico · FDA Label · DrugBank
+          </p>
+          <p className="mt-1 font-mono">
+            Documento gerado em {new Date().toLocaleString('pt-BR')} ·
+            interafarmaoficial.vercel.app
+          </p>
+        </div>
       </main>
 
-      <footer className="bg-slate-950 text-slate-300 border-t border-slate-800 mt-auto pb-safe">
+      <footer className="bg-slate-950 text-slate-300 border-t border-slate-800 mt-auto pb-safe print:hidden">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
             <div className="flex items-center gap-3">
