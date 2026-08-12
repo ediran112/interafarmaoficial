@@ -9,9 +9,13 @@ import {
 } from 'lucide-react';
 import type { DrugInteraction, SeverityLevel } from '../types';
 
+export type SeverityFilter = 'all' | SeverityLevel;
+
 interface PolypharmacySummaryProps {
-  drugs: string[];              // fármacos consultados
-  interactions: DrugInteraction[]; // interações filtradas
+  drugs: string[];                        // fármacos consultados
+  interactions: DrugInteraction[];        // interações (todas, sem filtro)
+  activeFilter?: SeverityFilter;
+  onFilterChange?: (filter: SeverityFilter) => void;
 }
 
 interface PairKey {
@@ -60,8 +64,15 @@ function matches(needle: string, haystack: string): boolean {
 export const PolypharmacySummary: React.FC<PolypharmacySummaryProps> = ({
   drugs,
   interactions,
+  activeFilter = 'all',
+  onFilterChange,
 }) => {
   const [matrixOpen, setMatrixOpen] = useState(false);
+
+  const toggleFilter = (sev: SeverityLevel) => {
+    if (!onFilterChange) return;
+    onFilterChange(activeFilter === sev ? 'all' : sev);
+  };
 
   if (drugs.length < 2) return null;
 
@@ -164,27 +175,48 @@ export const PolypharmacySummary: React.FC<PolypharmacySummaryProps> = ({
           </div>
         </div>
 
-        {/* Severity counts */}
+        {/* Severity counts — clicáveis para filtrar */}
         <div className="grid grid-cols-3 gap-2 mb-3">
           <SeverityCount
             label="Graves"
             count={counts.Grave}
             icon={<AlertTriangle className="w-3.5 h-3.5" />}
             color="rose"
+            active={activeFilter === 'Grave'}
+            onClick={onFilterChange ? () => toggleFilter('Grave') : undefined}
           />
           <SeverityCount
             label="Moderadas"
             count={counts.Moderada}
             icon={<ShieldAlert className="w-3.5 h-3.5" />}
             color="amber"
+            active={activeFilter === 'Moderada'}
+            onClick={onFilterChange ? () => toggleFilter('Moderada') : undefined}
           />
           <SeverityCount
             label="Leves"
             count={counts.Leve}
             icon={<Info className="w-3.5 h-3.5" />}
             color="sky"
+            active={activeFilter === 'Leve'}
+            onClick={onFilterChange ? () => toggleFilter('Leve') : undefined}
           />
         </div>
+
+        {/* Filter status */}
+        {activeFilter !== 'all' && onFilterChange && (
+          <div className="mb-3 inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-900 text-white text-[11px] font-semibold print:hidden">
+            <span>Filtrando: {activeFilter}</span>
+            <button
+              type="button"
+              onClick={() => onFilterChange('all')}
+              className="text-slate-400 hover:text-white cursor-pointer"
+              aria-label="Limpar filtro"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Risk description */}
         <div className="text-[13px] text-slate-700 leading-relaxed mb-3">
@@ -328,11 +360,15 @@ function SeverityCount({
   count,
   icon,
   color,
+  active,
+  onClick,
 }: {
   label: string;
   count: number;
   icon: React.ReactNode;
   color: 'rose' | 'amber' | 'sky';
+  active?: boolean;
+  onClick?: () => void;
 }) {
   const bg =
     color === 'rose'
@@ -340,13 +376,46 @@ function SeverityCount({
       : color === 'amber'
       ? 'bg-amber-50 border-amber-200 text-amber-800'
       : 'bg-sky-50 border-sky-200 text-sky-800';
-  const active = count > 0;
+  const activeBg =
+    color === 'rose'
+      ? 'bg-rose-600 border-rose-700 text-white'
+      : color === 'amber'
+      ? 'bg-amber-500 border-amber-600 text-white'
+      : 'bg-sky-500 border-sky-600 text-white';
+
+  const hasCount = count > 0;
+  const clickable = hasCount && !!onClick;
+
+  const classes = active
+    ? activeBg
+    : hasCount
+    ? bg
+    : 'bg-slate-50 border-slate-200 text-slate-400';
+
+  const interactiveClasses = clickable
+    ? 'cursor-pointer hover:scale-[1.02] transition-transform'
+    : '';
+
+  if (clickable) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-pressed={active}
+        title={active ? `Ver todas — Remover filtro ${label}` : `Filtrar apenas ${label}`}
+        className={`rounded-lg border p-2.5 text-center ${classes} ${interactiveClasses}`}
+      >
+        <div className="flex items-center justify-center gap-1 text-[10.5px] font-semibold uppercase tracking-[0.1em] mb-0.5">
+          {icon}
+          {label}
+        </div>
+        <div className="font-mono text-[20px] font-bold leading-none">{count}</div>
+      </button>
+    );
+  }
+
   return (
-    <div
-      className={`rounded-lg border p-2.5 text-center ${
-        active ? bg : 'bg-slate-50 border-slate-200 text-slate-400'
-      }`}
-    >
+    <div className={`rounded-lg border p-2.5 text-center ${classes}`}>
       <div className="flex items-center justify-center gap-1 text-[10.5px] font-semibold uppercase tracking-[0.1em] mb-0.5">
         {icon}
         {label}

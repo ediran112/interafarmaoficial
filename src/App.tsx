@@ -21,8 +21,8 @@ import { SafetyGuide } from './components/SafetyGuide';
 import { DrugMonograph } from './components/DrugMonograph';
 import { PrescriptionRewriteModal } from './components/PrescriptionRewriteModal';
 import { ClinicalDisclaimer } from './components/ClinicalDisclaimer';
-import { PolypharmacySummary } from './components/PolypharmacySummary';
-import { Pill, AlertCircle, RefreshCw, Search, Zap, Printer } from 'lucide-react';
+import { PolypharmacySummary, type SeverityFilter } from './components/PolypharmacySummary';
+import { Pill, AlertCircle, RefreshCw, Search, Zap, Printer, Copy, Check } from 'lucide-react';
 
 export default function App() {
   const [interactions, setInteractions] = useState<DrugInteraction[]>([]);
@@ -32,7 +32,7 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchExecutedTerm, setSearchExecutedTerm] = useState('');
   const [isSearchLoading, setIsSearchLoading] = useState(false);
-  const [severityFilter, setSeverityFilter] = useState('Todos');
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [lastResponseMs, setLastResponseMs] = useState<number | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
 
@@ -58,6 +58,71 @@ export default function App() {
   const handlePrint = () => {
     // Give the browser a tick to apply @media print styles before invoking dialog
     setTimeout(() => window.print(), 50);
+  };
+
+  // Copy summary to clipboard — WhatsApp-friendly format for sharing with team
+  const [copiedSummary, setCopiedSummary] = useState(false);
+  const handleCopySummary = async () => {
+    const now = new Date();
+    const ts = now.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const counts = { Grave: 0, Moderada: 0, Leve: 0 };
+    filteredInteractions.forEach((it) => {
+      if (it.severity in counts) counts[it.severity as 'Grave' | 'Moderada' | 'Leve']++;
+    });
+
+    const sevIcon = (s: string) =>
+      s === 'Grave' ? '🔴' : s === 'Moderada' ? '🟠' : '🔵';
+
+    const lines: string[] = [];
+    lines.push('📋 *Análise Interafarma*');
+    lines.push(`🗓 ${ts}`);
+    lines.push('');
+    lines.push(`*Consulta:* ${searchExecutedTerm}`);
+    if (currentDrugList.length >= 2) {
+      const totalPairs = (currentDrugList.length * (currentDrugList.length - 1)) / 2;
+      lines.push(
+        `*Análise:* ${currentDrugList.length} medicamentos · ${totalPairs} pares`
+      );
+      lines.push(
+        `*Distribuição:* ${counts.Grave} Grave${counts.Grave !== 1 ? 's' : ''} · ${counts.Moderada} Moderada${counts.Moderada !== 1 ? 's' : ''} · ${counts.Leve} Leve${counts.Leve !== 1 ? 's' : ''}`
+      );
+    }
+    lines.push('');
+    lines.push('━━━━━━━━━━━━━━━━━');
+    lines.push('');
+
+    filteredInteractions.forEach((it, i) => {
+      lines.push(`${sevIcon(it.severity)} *${it.severity.toUpperCase()}* — ${it.drugA} × ${it.drugB}`);
+      if (it.effect) lines.push(`_Efeito:_ ${it.effect}`);
+      if (it.mechanism) lines.push(`_Mecanismo:_ ${it.mechanism}`);
+      if (it.recommendation) lines.push(`_Conduta:_ ${it.recommendation}`);
+      if (it.monitoring) lines.push(`_Monitorização:_ ${it.monitoring}`);
+      if (i < filteredInteractions.length - 1) lines.push('');
+    });
+
+    lines.push('');
+    lines.push('━━━━━━━━━━━━━━━━━');
+    lines.push('');
+    lines.push('⚠ Ferramenta de apoio à decisão clínica. Não substitui julgamento profissional habilitado.');
+    lines.push('');
+    lines.push('Fontes: Micromedex · Stockley · SciELO · PubMed · Anvisa · FDA');
+    lines.push('interafarmaoficial.vercel.app');
+
+    const text = lines.join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedSummary(true);
+      setTimeout(() => setCopiedSummary(false), 2000);
+    } catch (err) {
+      console.warn('Falha ao copiar para área de transferência:', err);
+    }
   };
 
   const fetchMonograph = async (drug: string) => {
@@ -113,6 +178,7 @@ export default function App() {
 
     setSearchExecutedTerm(term);
     setIsSearchLoading(true);
+    setSeverityFilter('all'); // reset filter on new query
 
     // Remember the current query as the prescription context for the rewrite modal
     setCurrentDrugList(drugs && drugs.length > 0 ? drugs : term ? [term] : []);
@@ -243,7 +309,11 @@ export default function App() {
   };
 
   // Filtered interactions for search tab based on executed search
-  const filteredInteractions = searchInteractions(interactions, searchExecutedTerm, severityFilter);
+  const allSearchResults = searchInteractions(interactions, searchExecutedTerm, 'Todos');
+  const filteredInteractions =
+    severityFilter === 'all'
+      ? allSearchResults
+      : allSearchResults.filter((it) => it.severity === severityFilter);
   const allDrugNames = getAllUniqueDrugNames(interactions);
 
   // Handle saving a check from CombinationChecker
@@ -513,7 +583,26 @@ export default function App() {
                         </span>
                       )}
                     </span>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleCopySummary}
+                        title="Copiar resumo para WhatsApp/email"
+                        aria-label="Copiar resumo para área de transferência"
+                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-white border border-slate-300 hover:border-slate-500 hover:bg-slate-50 text-slate-700 hover:text-slate-950 text-[12px] font-semibold transition-colors cursor-pointer"
+                      >
+                        {copiedSummary ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Copiado</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copiar resumo</span>
+                          </>
+                        )}
+                      </button>
                       <button
                         type="button"
                         onClick={handlePrint}
@@ -522,11 +611,10 @@ export default function App() {
                         className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-white border border-slate-300 hover:border-slate-500 hover:bg-slate-50 text-slate-700 hover:text-slate-950 text-[12px] font-semibold transition-colors cursor-pointer"
                       >
                         <Printer className="w-3.5 h-3.5" />
-                        <span>Imprimir / PDF</span>
+                        <span>PDF</span>
                       </button>
-                      <span className="font-mono text-[11px] text-slate-400">
-                        {filteredInteractions.length}{' '}
-                        {filteredInteractions.length === 1 ? 'interação' : 'interações'}
+                      <span className="font-mono text-[11px] text-slate-400 ml-1">
+                        {filteredInteractions.length}
                       </span>
                     </div>
                   </div>
@@ -534,7 +622,9 @@ export default function App() {
                   {currentDrugList.length >= 2 && (
                     <PolypharmacySummary
                       drugs={currentDrugList}
-                      interactions={filteredInteractions}
+                      interactions={allSearchResults}
+                      activeFilter={severityFilter}
+                      onFilterChange={setSeverityFilter}
                     />
                   )}
 

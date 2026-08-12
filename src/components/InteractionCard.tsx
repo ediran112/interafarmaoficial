@@ -34,6 +34,30 @@ interface InteractionCardProps {
   isSaved?: boolean;
 }
 
+const APP_VERSION = 'v1.0';
+
+/**
+ * Extract UNIX timestamp from generated interaction id.
+ * IDs from AI backend look like "ai-openai-1786499700174-0-wxy5w".
+ */
+function extractTimestamp(id: string): number | null {
+  const match = id?.match(/-(\d{13})-/);
+  if (!match) return null;
+  const n = parseInt(match[1], 10);
+  return isNaN(n) ? null : n;
+}
+
+function formatTimestamp(ts: number): string {
+  const d = new Date(ts);
+  return d.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 const SEVERITY_STYLE: Record<
   string,
   { label: string; badge: string; bar: string; icon: React.ReactNode }
@@ -96,6 +120,8 @@ Recomendação: ${interaction.recommendation}`;
       : interaction.severity === 'Moderada'
       ? 'print-severity-moderada'
       : 'print-severity-leve';
+
+  const ts = extractTimestamp(interaction.id);
 
   return (
     <article className={`bg-white rounded-2xl border border-slate-200 hover:border-slate-300 transition-colors overflow-hidden ${printSeverityClass}`}>
@@ -271,6 +297,12 @@ Recomendação: ${interaction.recommendation}`;
             </button>
           </div>
         </div>
+
+        {ts && (
+          <div className="mt-2 text-[10px] font-mono text-slate-400 text-right">
+            gerado em {formatTimestamp(ts)} · {APP_VERSION}
+          </div>
+        )}
       </div>
 
       <div
