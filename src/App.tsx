@@ -21,6 +21,7 @@ import { SafetyGuide } from './components/SafetyGuide';
 import { DrugMonograph } from './components/DrugMonograph';
 import { PrescriptionRewriteModal } from './components/PrescriptionRewriteModal';
 import { ClinicalDisclaimer } from './components/ClinicalDisclaimer';
+import { PolypharmacySummary } from './components/PolypharmacySummary';
 import { Pill, AlertCircle, RefreshCw, Search, Zap, Printer } from 'lucide-react';
 
 export default function App() {
@@ -529,6 +530,13 @@ export default function App() {
                       </span>
                     </div>
                   </div>
+
+                  {currentDrugList.length >= 2 && (
+                    <PolypharmacySummary
+                      drugs={currentDrugList}
+                      interactions={filteredInteractions}
+                    />
+                  )}
 
                   {filteredInteractions.map((item) => (
                     <InteractionCard
