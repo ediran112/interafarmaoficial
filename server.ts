@@ -190,11 +190,25 @@ async function startServer() {
       if (openai) {
         try {
           let completion;
-          let usedModel = 'gpt-4o-mini';
+          let usedModel = 'gpt-4o';
           const systemMsg = buildSearchSystemPrompt();
           const userMsg = buildSearchUserPrompt(drugs, freeText);
 
           try {
+            completion = await openai.chat.completions.create({
+              model: 'gpt-4o',
+              response_format: { type: 'json_object' },
+              messages: [
+                { role: 'system', content: systemMsg },
+                { role: 'user', content: userMsg },
+              ],
+              temperature: 0.15,
+              max_tokens: 8192,
+            });
+            usedModel = 'gpt-4o';
+          } catch (fullErr: any) {
+            console.warn('gpt-4o failed in server.ts, fallback to gpt-4o-mini:', fullErr.message || fullErr);
+            usedModel = 'gpt-4o-mini';
             completion = await openai.chat.completions.create({
               model: 'gpt-4o-mini',
               response_format: { type: 'json_object' },
@@ -204,18 +218,6 @@ async function startServer() {
               ],
               temperature: 0.15,
               max_tokens: 4096,
-            });
-          } catch (miniErr: any) {
-            console.warn('gpt-4o-mini failed in server.ts, fallback to gpt-3.5-turbo:', miniErr.message || miniErr);
-            usedModel = 'gpt-3.5-turbo';
-            completion = await openai.chat.completions.create({
-              model: 'gpt-3.5-turbo',
-              response_format: { type: 'json_object' },
-              messages: [
-                { role: 'system', content: systemMsg },
-                { role: 'user', content: userMsg },
-              ],
-              temperature: 0.2,
             });
           }
 
@@ -299,10 +301,23 @@ async function startServer() {
       if (openai) {
         try {
           let completion;
-          let usedModel = 'gpt-4o-mini';
+          let usedModel = 'gpt-4o';
           const systemMsg = buildMonographSystemPrompt();
           const userMsg = buildMonographUserPrompt(drug);
           try {
+            completion = await openai.chat.completions.create({
+              model: 'gpt-4o',
+              response_format: { type: 'json_object' },
+              messages: [
+                { role: 'system', content: systemMsg },
+                { role: 'user', content: userMsg },
+              ],
+              temperature: 0.1,
+              max_tokens: 6000,
+            });
+          } catch (fullErr: any) {
+            console.warn('gpt-4o monograph failed, fallback to gpt-4o-mini:', fullErr.message);
+            usedModel = 'gpt-4o-mini';
             completion = await openai.chat.completions.create({
               model: 'gpt-4o-mini',
               response_format: { type: 'json_object' },
@@ -310,20 +325,8 @@ async function startServer() {
                 { role: 'system', content: systemMsg },
                 { role: 'user', content: userMsg },
               ],
-              temperature: 0.1,
+              temperature: 0.15,
               max_tokens: 4096,
-            });
-          } catch (miniErr: any) {
-            console.warn('gpt-4o-mini monograph failed, fallback to gpt-3.5-turbo:', miniErr.message);
-            usedModel = 'gpt-3.5-turbo';
-            completion = await openai.chat.completions.create({
-              model: 'gpt-3.5-turbo',
-              response_format: { type: 'json_object' },
-              messages: [
-                { role: 'system', content: systemMsg },
-                { role: 'user', content: userMsg },
-              ],
-              temperature: 0.2,
             });
           }
           const rawText = completion.choices[0]?.message?.content?.trim() || '{}';
@@ -365,6 +368,18 @@ async function startServer() {
           let completion;
           try {
             completion = await openai.chat.completions.create({
+              model: 'gpt-4o',
+              response_format: { type: 'json_object' },
+              messages: [
+                { role: 'system', content: systemMsg },
+                { role: 'user', content: userMsg },
+              ],
+              temperature: 0.15,
+              max_tokens: 4500,
+            });
+          } catch (fullErr: any) {
+            console.warn('gpt-4o rewrite failed, fallback to gpt-4o-mini:', fullErr.message);
+            completion = await openai.chat.completions.create({
               model: 'gpt-4o-mini',
               response_format: { type: 'json_object' },
               messages: [
@@ -373,17 +388,6 @@ async function startServer() {
               ],
               temperature: 0.15,
               max_tokens: 3000,
-            });
-          } catch (miniErr: any) {
-            console.warn('gpt-4o-mini rewrite failed, fallback to gpt-3.5-turbo:', miniErr.message);
-            completion = await openai.chat.completions.create({
-              model: 'gpt-3.5-turbo',
-              response_format: { type: 'json_object' },
-              messages: [
-                { role: 'system', content: systemMsg },
-                { role: 'user', content: userMsg },
-              ],
-              temperature: 0.2,
             });
           }
           const rawText = completion.choices[0]?.message?.content?.trim() || '{}';

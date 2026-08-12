@@ -35,32 +35,62 @@ const EVIDENCE_SCALE = `Escala de nível de evidência (evidenceLevel):
 const CLINICAL_DIRECTIVES = `DIRETRIZES CLÍNICAS OBRIGATÓRIAS (não negociáveis):
 
 1. ALTERNATIVAS COM NOME + JUSTIFICATIVA FARMACOLÓGICA
-   NUNCA escreva sugestões genéricas em "alternatives" (não use "consulte médico",
-   "considere outra classe", "discuta com o prescritor" etc). SEMPRE cite de 1 a 3
+   NUNCA escreva sugestões genéricas em "alternatives". SEMPRE cite de 1 a 3
    PRINCÍPIOS ATIVOS específicos e explique EM UMA FRASE por que cada um é seguro
-   (ex: metabolicamente independente do CYP3A4, não afeta agregação plaquetária,
-   depuração renal alternativa, não prolonga QT). Formato ideal:
-   "Paracetamol (não afeta COX-1, sem risco gastrolesivo); Codeína (analgésico opioide
-   fraco, metabolismo por CYP2D6 independente)."
+   (metabolicamente independente do CYP envolvido, não afeta a mesma via de
+   agregação/depuração/receptor). Formato:
+   "Paracetamol (não afeta COX-1, sem risco gastrolesivo); Codeína (metabolismo
+   por CYP2D6 independente do 3A4)."
 
 2. VIA DE ADMINISTRAÇÃO ESPECIFICADA
-   Se a gravidade/manejo variarem por via (Oral, IV, IM, SC, tópico, inalatório),
-   ESPECIFIQUE EXPLICITAMENTE em "contraindications" e "doseAdjustment". Ex:
-   "Contraindicado por via IV (risco de arritmia); via oral requer apenas monitorização
-   de INR." — não deixe implícito.
+   Se gravidade/manejo variam por via (VO, IV, IM, SC, tópico, inalatório),
+   ESPECIFIQUE EXPLICITAMENTE em "contraindications" e "doseAdjustment". Se o
+   fármaco só existe em uma via, não force separação artificial — descreva a via
+   real do medicamento.
 
 3. MONITORIZAÇÃO MENSURÁVEL
-   "monitoring" deve conter APENAS parâmetros mensuráveis com valor de referência,
-   frequência ou antídoto/reversor quando aplicável. Ex:
-   "INR a cada 3 dias (alvo 2-3); K+ sérico se > 5,0 mEq/L suspender; ECG com QTc
-   < 450 ms; sinais de sangramento (hematúria, melena); antídoto: vitamina K 10 mg IV."
-   Termos abstratos ("acompanhar", "observar", "avaliar clinicamente") são PROIBIDOS.
+   "monitoring" contém APENAS parâmetros mensuráveis com valor de referência,
+   frequência ou antídoto. Ex: "INR a cada 3 dias (alvo 2-3); K+ sérico se > 5,0
+   suspender; ECG QTc < 450 ms; antídoto: vitamina K 10 mg IV." Termos abstratos
+   ("acompanhar", "observar", "avaliar clinicamente") são PROIBIDOS.
 
 4. TEXTO CURTO, ACIONÁVEL, LEITURA < 5 SEGUNDOS
-   Cada campo textual deve ser lido em menos de 5 segundos por um profissional
-   ocupado. Frases diretas, verbos no imperativo/infinitivo, sem preâmbulos
-   ("é importante notar que…", "vale ressaltar…"). Máximo 2 frases por campo,
-   exceto "clinicalManagement" que pode ter até 3.`;
+   Frases diretas, verbos no imperativo/infinitivo, sem preâmbulos. Máximo 2
+   frases por campo (3 em clinicalManagement, epidemiology, riskStratification
+   e rescueProtocol).
+
+5. DADOS QUANTITATIVOS DE RISCO
+   Sempre que houver dado publicado, INCLUIR em "epidemiology" e nos textos:
+   - Percentual de aumento de risco (ex: "3-5× o risco de sangramento maior")
+   - Risco relativo (RR) ou odds ratio (OR) com IC95% quando disponível
+   - NNT (número necessário para tratar) ou NNH (para dano) quando publicado
+   - Janela temporal em que o risco é máximo
+   Se não houver dado em literatura primária, escreva "quantificação não
+   disponível em literatura primária" — NUNCA invente números.
+
+6. CENÁRIOS DIFERENCIADOS EM "recommendation" E "clinicalManagement"
+   Quando relevante, separe conduta por cenário: eletivo vs urgente/emergencial;
+   idoso (> 65a ou > 75a) vs adulto jovem; monoterapia vs dupla/tripla; IRC vs
+   função renal preservada. Formato: "Eletivo: X. Urgente: Y."
+
+7. DIRETRIZES OFICIAIS CITADAS
+   Sempre que possível, cite a diretriz clínica que embasa a conduta com ano
+   e classe de recomendação: SBC/Diretriz Brasileira, ACC/AHA, ESC, CHEST,
+   IDSA, ADA/SBD, ChestCollege, KDIGO. Ex: "Manter INR 2-3 (SBC HAS 2022,
+   classe I)". Se sem diretriz, mencione consenso de especialistas.
+
+8. PROTOCOLO DE RESGATE (rescueProtocol)
+   Descreva a conduta clínica imediata SE o evento adverso ocorrer, com
+   antídoto/reversor e dose numérica. Ex: "Sangramento maior por Warfarina:
+   suspender; vitamina K 10 mg IV lento; PCC 25-50 UI/kg se INR > 6; monitorar
+   Hb a cada 6 h." Se não houver reversor específico, descreva suporte clínico
+   estruturado.
+
+9. ESTRATIFICAÇÃO DE RISCO (riskStratification)
+   Em "riskStratification", identifique populações de ALTO e BAIXO risco em uma
+   linha cada. Ex: "Alto risco: > 75a, ClCr < 30, sangramento GI prévio, IMC < 20,
+   uso > 30 dias. Baixo risco: adulto jovem sem comorbidade, uso < 7 dias, INR
+   monitorado."`;
 
 const CLINICAL_SCHEMA = `Cada item de "results" DEVE seguir EXATAMENTE este schema (Português do Brasil):
 {
@@ -71,26 +101,29 @@ const CLINICAL_SCHEMA = `Cada item de "results" DEVE seguir EXATAMENTE este sche
   "severity": "Grave" | "Moderada" | "Leve",
   "evidenceLevel": "A" | "B" | "C" | "D",
   "category": "Especialidade médica principal (ex: Cardiologia, Psiquiatria, Anticoagulação)",
-  "effect": "Desfecho clínico esperado em UMA frase objetiva (< 5s de leitura).",
-  "mechanism": "Mecanismo PK/PD específico em UMA frase (ex: 'inibição competitiva de CYP2C9', 'antagonismo em receptor 5-HT2A').",
-  "onset": "'Imediato' | 'Rápido (< 24 h)' | 'Retardado (2-7 dias)' | 'Tardio (> 1 semana)'.",
-  "recommendation": "Conduta em UMA frase imperativa (ex: 'Substituir A por Y' / 'Manter com monitorização').",
-  "clinicalManagement": "Passos práticos SEQUENCIAIS: o que suspender/substituir/escalonar; horários; espaçamento (máx. 3 frases).",
-  "monitoring": "APENAS parâmetros mensuráveis: exame, valor de corte, frequência e antídoto quando aplicável. Termos abstratos são proibidos.",
-  "doseAdjustment": "Ajuste posológico numérico E POR VIA (ex: 'Oral: reduzir 50%'; 'IV: contraindicado'). Se não aplicável, escreva 'Não requer ajuste'.",
-  "contraindications": "Contraindicações POR VIA quando relevante. Absoluta vs relativa deve ficar clara.",
-  "specialPopulations": "Ajustes específicos em idosos (> 65a), gestantes/lactantes, hepatopatas (Child-Pugh), nefropatas (ClCr), pediatria.",
-  "alternatives": "1 a 3 princípios ativos NOMEADOS com justificativa farmacológica em UMA frase cada (formato descrito nas Diretrizes).",
-  "foodInteractions": "Alimentos/álcool/sucos/suplementos com impacto mensurável. Se irrelevante, string vazia.",
-  "affectedOrgans": ["Órgãos/sistemas mais afetados, específicos (ex: 'Miocárdio', 'Túbulo renal proximal')"],
-  "references": ["Fontes reais (Micromedex, Stockley, Anvisa, FDA Label, DrugBank). Se sem base, array vazio — não invente."]
+  "effect": "Desfecho clínico principal + magnitude quantitativa em UMA frase (ex: 'Aumento de 3-5× no risco de sangramento maior, principalmente GI').",
+  "mechanism": "Mecanismo PK/PD específico com quantificação quando publicada (ex: 'Inibição de CYP2C9 reduz depuração da varfarina em 30-50%, elevando INR proporcionalmente').",
+  "onset": "'Imediato' | 'Rápido (< 24 h)' | 'Retardado (2-7 dias)' | 'Tardio (> 1 semana)'. Cite janela de risco máximo.",
+  "epidemiology": "Dados quantitativos de risco publicados: RR/OR com IC95%, NNT/NNH, incidência. Ex: 'RR sangramento maior 3,08 (IC95% 2,3-4,0); NNH ~ 200 pacientes-ano em AAS 100 mg'. Se sem dado publicado, string vazia — NÃO invente.",
+  "riskStratification": "Alto risco vs Baixo risco em UMA linha cada. Ex: 'Alto: > 75a, ClCr < 30, sangramento GI prévio, uso > 30 dias. Baixo: adulto jovem, uso < 7 dias, INR estável.'",
+  "recommendation": "Conduta principal em UMA frase imperativa, com diretriz oficial citada quando aplicável (ex: 'Evitar. Se indispensável, reduzir AAS a 75 mg/dia + IBP profilático — SBC HAS 2022, classe IIa').",
+  "clinicalManagement": "Passos práticos SEQUENCIAIS com cenários diferenciados quando relevante (eletivo vs urgente; jovem vs idoso; monoterapia vs terapia dupla). Máx. 3 frases.",
+  "monitoring": "APENAS parâmetros mensuráveis: exame, valor de corte, frequência. Ex: 'INR alvo 2-3 a cada 3 dias; Hb basal e a cada 30 dias; sangue oculto nas fezes trimestral.' Termos abstratos são proibidos.",
+  "rescueProtocol": "Conduta imediata SE o evento adverso ocorrer, com antídoto/reversor e dose numérica. Ex: 'Sangramento maior: suspender ambos; vitamina K 10 mg IV lento; PCC 25-50 UI/kg se INR > 6; monitorar Hb 6/6h.' Se sem antídoto, descreva suporte clínico estruturado.",
+  "doseAdjustment": "Ajuste posológico numérico E POR VIA quando aplicável (ex: 'AAS: reduzir a 75 mg VO 1x/dia; Varfarina: reduzir 20% e ajustar por INR'). Se não requer, escreva 'Não requer ajuste'.",
+  "contraindications": "Contraindicações absolutas vs relativas explícitas. Ex: 'Absoluta: sangramento ativo, HAS descontrolada > 180/110, plaquetas < 50.000. Relativa: idade > 80a, uso concomitante de AINE.'",
+  "specialPopulations": "Ajustes específicos em idosos (> 65a e > 75a), gestantes/lactantes (categoria FDA), hepatopatas (Child-Pugh), nefropatas (ClCr), pediatria.",
+  "alternatives": "1 a 3 princípios ativos NOMEADOS com justificativa farmacológica em UMA frase cada.",
+  "foodInteractions": "Alimentos/álcool/sucos/suplementos com impacto mensurável e dose de referência (ex: 'Vitamina K > 250 mcg/dia altera INR — manter ingestão constante'). Se irrelevante, string vazia.",
+  "affectedOrgans": ["Órgãos/sistemas específicos (ex: 'Miocárdio', 'Túbulo renal proximal', 'Mucosa gástrica')"],
+  "references": ["Fontes reais consultadas (Micromedex, Stockley, SciELO, PubMed, Anvisa Bulário, FDA Label, DrugBank) + diretrizes específicas com ano (ex: 'SBC HAS 2022', 'CHEST Antithrombotic 2022'). Se sem base sólida, array vazio."]
 }
 
 REGRAS DE FORMATAÇÃO:
 - Retorne SEMPRE {"results": [...]} — nunca array na raiz.
 - Sem markdown, sem crase tripla, sem texto fora do JSON.
 - Sem disclaimers dentro dos campos.
-- Textos em Português do Brasil, técnicos mas legíveis.`;
+- Textos em Português do Brasil, técnicos e densos, adequados a ponto de cuidado hospitalar.`;
 
 export function buildSearchSystemPrompt(): string {
   return `Você é um farmacologista clínico especializado atuando como motor de análise
@@ -459,9 +492,12 @@ export function normalizeResults(rawResults: any[], provider: string): any[] {
       effect: asStr(it.effect, 'Efeito clínico em avaliação.'),
       mechanism: asStr(it.mechanism, 'Mecanismo farmacológico não especificado.'),
       onset: asStr(it.onset, ''),
+      epidemiology: asStr(it.epidemiology, ''),
+      riskStratification: asStr(it.riskStratification, ''),
       recommendation: asStr(it.recommendation, ''),
       clinicalManagement: asStr(it.clinicalManagement, ''),
       monitoring: asStr(it.monitoring, ''),
+      rescueProtocol: asStr(it.rescueProtocol, ''),
       doseAdjustment: asStr(it.doseAdjustment, ''),
       contraindications: asStr(it.contraindications, ''),
       specialPopulations: asStr(it.specialPopulations, ''),

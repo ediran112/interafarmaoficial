@@ -19,15 +19,18 @@ export interface DrugInteraction {
   affectedOrgans?: string[];
   createdAt?: string;
 
-  // Enriched clinical fields (optional; populated by AI backend)
+  // Enriched clinical fields (optional; populated by clinical backend)
   evidenceLevel?: EvidenceLevel;   // A = ensaio robusto, B = estudos, C = relatos, D = teórico
-  onset?: string;                  // Ex: "Rápido (< 24 h)" | "Retardado (dias a semanas)"
-  monitoring?: string;             // Parâmetros clínicos/laboratoriais a monitorar
-  doseAdjustment?: string;         // Recomendação de ajuste posológico
-  contraindications?: string;      // Contraindicações absolutas/relativas
+  onset?: string;                  // Janela temporal da interação
+  epidemiology?: string;           // RR/OR/NNT/incidência com IC95%
+  riskStratification?: string;     // Alto vs baixo risco por perfil de paciente
+  monitoring?: string;             // Parâmetros mensuráveis com valor de corte
+  rescueProtocol?: string;         // Conduta imediata + antídoto se evento adverso
+  doseAdjustment?: string;         // Ajuste posológico numérico
+  contraindications?: string;      // Absolutas vs relativas
   specialPopulations?: string;     // Idosos, gestantes, hepatopatas, nefropatas
-  clinicalManagement?: string;     // Passos práticos de manejo
-  references?: string[];           // Fontes citadas (Micromedex, DrugBank, Anvisa, etc.)
+  clinicalManagement?: string;     // Passos práticos SEQUENCIAIS
+  references?: string[];           // Fontes reais + diretrizes com ano
 }
 
 export interface UserProfile {

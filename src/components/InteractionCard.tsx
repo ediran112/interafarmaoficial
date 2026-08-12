@@ -20,6 +20,9 @@ import {
   Sparkle,
   MessageCircle,
   Wand2,
+  TrendingUp,
+  Users2,
+  Siren,
 } from 'lucide-react';
 import { DrugInteraction } from '../types';
 
@@ -164,6 +167,33 @@ Recomendação: ${interaction.recommendation}`;
             </p>
           </div>
 
+          {(interaction.epidemiology || interaction.riskStratification) && (
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {interaction.epidemiology && (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                  <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-slate-500 mb-1">
+                    <TrendingUp className="w-3.5 h-3.5 text-rose-600" />
+                    Magnitude do risco
+                  </div>
+                  <p className="text-[12.5px] text-slate-800 leading-relaxed font-mono">
+                    {interaction.epidemiology}
+                  </p>
+                </div>
+              )}
+              {interaction.riskStratification && (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                  <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-slate-500 mb-1">
+                    <Users2 className="w-3.5 h-3.5 text-indigo-600" />
+                    Estratificação de risco
+                  </div>
+                  <p className="text-[12.5px] text-slate-800 leading-relaxed">
+                    {interaction.riskStratification}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {interaction.severity === 'Grave' && onSuggestRewrite && (
             <button
               type="button"
@@ -238,6 +268,18 @@ Recomendação: ${interaction.recommendation}`;
 
       {expanded && (
         <div className="border-t border-slate-100 bg-slate-50/60 px-5 sm:px-6 py-5">
+          {interaction.rescueProtocol && (
+            <div className="mb-3 bg-rose-50 border border-rose-200 rounded-xl p-4">
+              <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-rose-800 mb-2">
+                <Siren className="w-3.5 h-3.5" />
+                Protocolo de resgate — se o evento adverso ocorrer
+              </div>
+              <p className="text-[13.5px] text-rose-950 leading-relaxed">
+                {interaction.rescueProtocol}
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {interaction.clinicalManagement && (
               <ClinicalField
