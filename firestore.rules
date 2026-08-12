@@ -1,21 +1,42 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Drug interactions are public read-only for all users
-    match /drug_interactions/{document} {
+
+    // Public read-only base de interações — qualquer usuário pode ler,
+    // apenas usuários autenticados podem escrever (para seed inicial).
+    match /drug_interactions/{docId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow create, update: if request.auth != null;
+      allow delete: if false;
     }
-    
-    // User profile documents
+
+    // Perfil do usuário — cada usuário só acessa o próprio.
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // Saved checks
+
+    // Histórico de consultas — o usuário só cria e lê seus próprios registros.
+    // Na criação, exige que o campo userId bata com o UID do requisitante.
     match /saved_checks/{checkId} {
-      allow read, create, update, delete: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.keys().hasAll(['userId', 'drugs', 'createdAt']);
+
+      allow read: if request.auth != null
+                  && resource.data.userId == request.auth.uid;
+
+      allow update: if request.auth != null
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.userId == request.auth.uid;
+
+      allow delete: if request.auth != null
+                    && resource.data.userId == request.auth.uid;
+    }
+
+    // Bloqueia qualquer coleção não declarada acima.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

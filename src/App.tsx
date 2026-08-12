@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from './lib/firebase';
 import { DrugInteraction, SavedCheck, UserProfile, DrugMonograph as DrugMonographType } from './types';
-import { 
-  seedInitialInteractionsIfNeeded, 
-  searchInteractions, 
+import {
+  seedInitialInteractionsIfNeeded,
+  searchInteractions,
   getAllUniqueDrugNames,
   saveUserCheck,
+  saveSearchToHistory,
   getUserSavedChecks,
-  deleteSavedCheck
+  deleteSavedCheck,
 } from './services/interactionService';
 import { Navbar } from './components/Navbar';
 import { SearchHero } from './components/SearchHero';
@@ -22,7 +23,7 @@ import { DrugMonograph } from './components/DrugMonograph';
 import { PrescriptionRewriteModal } from './components/PrescriptionRewriteModal';
 import { ClinicalDisclaimer } from './components/ClinicalDisclaimer';
 import { PolypharmacySummary, type SeverityFilter } from './components/PolypharmacySummary';
-import { Pill, AlertCircle, RefreshCw, Search, Zap, Printer, Copy, Check } from 'lucide-react';
+import { Pill, AlertCircle, RefreshCw, Search, Zap, Printer, Copy, Check, BookmarkCheck } from 'lucide-react';
 
 export default function App() {
   const [interactions, setInteractions] = useState<DrugInteraction[]>([]);
@@ -209,15 +210,34 @@ export default function App() {
         const data = await response.json();
         setLastResponseMs(Date.now() - startTime);
         if (data.results && Array.isArray(data.results) && data.results.length > 0) {
+          const incoming: DrugInteraction[] = data.results.map((item: any, idx: number) => ({
+            id: item.id || `ai-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+            ...item,
+          }));
           setInteractions((prev) => {
-            const incoming: DrugInteraction[] = data.results.map((item: any, idx: number) => ({
-              id: item.id || `ai-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
-              ...item,
-            }));
             const existingIds = new Set(prev.map((it) => it.id));
             const newItems = incoming.filter((it) => !existingIds.has(it.id));
             return [...newItems, ...prev];
           });
+
+          // Auto-save no historico quando ha usuario logado real (nao guest demo)
+          const user = currentUserRef.current;
+          if (user && !user.uid.startsWith('demo-')) {
+            saveSearchToHistory({
+              userId: user.uid,
+              drugs: drugs || [],
+              queryText: term,
+              interactions: incoming,
+              provider: data.provider,
+            })
+              .then((saved) => {
+                if (saved) {
+                  setSavedChecks((prev) => [saved, ...prev]);
+                  flashToast('Consulta salva no histórico');
+                }
+              })
+              .catch(() => {}); // silencioso — nao bloqueia UX
+          }
         }
       }
     } catch (error: any) {
@@ -236,10 +256,21 @@ export default function App() {
   
   // Auth state
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const currentUserRef = useRef<UserProfile | null>(null);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  
+
   // Saved checks
   const [savedChecks, setSavedChecks] = useState<SavedCheck[]>([]);
+
+  // Toast: feedback discreto quando algo é salvo/copiado etc.
+  const [toast, setToast] = useState<string | null>(null);
+  const flashToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  };
 
   // AI Modal state
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
@@ -664,7 +695,7 @@ export default function App() {
         {/* TAB 3: GUIA DE SEGURANÇA */}
         {activeTab === 'guide' && <SafetyGuide />}
 
-        {/* TAB 4: MEUS MEDICAMENTOS E SALVOS */}
+        {/* HISTORICO DO USUARIO */}
         {activeTab === 'saved' && (
           <SavedChecks
             currentUser={currentUser}
@@ -672,7 +703,10 @@ export default function App() {
             onDeleteCheck={handleDeleteCheck}
             onOpenAuth={() => setIsAuthModalOpen(true)}
             onLoadCheckDrugs={(drugs) => {
-              setActiveTab('checker');
+              // Reabrir consulta: volta pra aba de busca e re-executa
+              setActiveTab('search');
+              const label = drugs.join(', ');
+              handleExecuteSearch({ term: label, drugs });
             }}
           />
         )}
@@ -757,6 +791,16 @@ export default function App() {
         }
         conflictingPair={rewritePair}
       />
+
+      {/* Toast discreto */}
+      {toast && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 print:hidden animate-[fadeIn_0.2s_ease]">
+          <div className="bg-slate-900 text-white text-[13px] font-semibold px-4 py-2.5 rounded-full shadow-lg inline-flex items-center gap-2">
+            <BookmarkCheck className="w-4 h-4 text-lime-400" />
+            {toast}
+          </div>
+        </div>
+      )}
 
     </div>
   );

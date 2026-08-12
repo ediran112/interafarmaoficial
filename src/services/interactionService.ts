@@ -196,6 +196,58 @@ export async function saveUserCheck(
   }
 }
 
+/**
+ * Save a search result to the user history with full breakdown.
+ * Called automatically after every successful search when the user is logged in.
+ * Returns null if save failed (fires silently — never blocks the UI).
+ */
+export async function saveSearchToHistory(params: {
+  userId: string;
+  drugs: string[];
+  queryText: string;
+  interactions: DrugInteraction[];
+  provider?: string;
+  notes?: string;
+}): Promise<SavedCheck | null> {
+  const { userId, drugs, queryText, interactions, provider = 'openai', notes = '' } = params;
+
+  const countsBySeverity = { grave: 0, moderada: 0, leve: 0 };
+  interactions.forEach((it) => {
+    if (it.severity === 'Grave') countsBySeverity.grave++;
+    else if (it.severity === 'Moderada') countsBySeverity.moderada++;
+    else if (it.severity === 'Leve') countsBySeverity.leve++;
+  });
+
+  const maxSeverity: SavedCheck['maxSeverity'] =
+    countsBySeverity.grave > 0
+      ? 'Grave'
+      : countsBySeverity.moderada > 0
+      ? 'Moderada'
+      : countsBySeverity.leve > 0
+      ? 'Leve'
+      : 'Nenhuma';
+
+  const newCheck: Omit<SavedCheck, 'id'> = {
+    userId,
+    drugs: drugs.length > 0 ? drugs : [queryText],
+    queryText,
+    foundInteractionsCount: interactions.length,
+    countsBySeverity,
+    maxSeverity,
+    provider,
+    notes,
+    createdAt: new Date().toISOString(),
+  };
+
+  try {
+    const docRef = await addDoc(collection(db, COLLECTION_SAVED_CHECKS), newCheck);
+    return { id: docRef.id, ...newCheck };
+  } catch (err) {
+    console.warn('Auto-save falhou (usuario nao autenticado ou regras Firestore):', err);
+    return null;
+  }
+}
+
 // Fetch user saved checks
 export async function getUserSavedChecks(userId: string): Promise<SavedCheck[]> {
   try {

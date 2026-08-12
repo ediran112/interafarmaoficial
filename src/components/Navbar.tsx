@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pill, User, LogOut } from 'lucide-react';
+import { Pill, User, LogOut, BookmarkCheck } from 'lucide-react';
 import { UserProfile } from '../types';
 
 interface NavbarProps {
@@ -13,10 +13,12 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
+  activeTab,
   setActiveTab,
   currentUser,
   onOpenAuth,
   onLogout,
+  savedCount,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-slate-200/80 safe-top">
@@ -41,8 +43,33 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <div className="flex items-center gap-2">
+            {currentUser && (
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveTab(activeTab === 'saved' ? 'search' : 'saved')
+                }
+                title={activeTab === 'saved' ? 'Voltar às consultas' : 'Meu histórico'}
+                className={`relative inline-flex items-center gap-1.5 h-10 px-3 sm:px-3.5 rounded-full text-[13px] font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'saved'
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200'
+                }`}
+              >
+                <BookmarkCheck className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">
+                  {activeTab === 'saved' ? 'Buscar' : 'Histórico'}
+                </span>
+                {activeTab !== 'saved' && savedCount > 0 && (
+                  <span className="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-lime-400 text-slate-950 text-[10px] font-bold font-mono">
+                    {savedCount > 99 ? '99+' : savedCount}
+                  </span>
+                )}
+              </button>
+            )}
+
             {currentUser ? (
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-2.5 sm:px-3 py-1.5 rounded-full">
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 pl-2.5 pr-1 py-1 rounded-full">
                 <div className="w-6 h-6 rounded-full bg-lime-400 text-slate-950 font-bold flex items-center justify-center text-[11px] shrink-0">
                   {currentUser.displayName
                     ? currentUser.displayName[0].toUpperCase()
@@ -65,7 +92,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={onOpenAuth}
-                className="inline-flex items-center gap-1.5 h-10 px-4 rounded-full text-[13px] font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors"
+                className="inline-flex items-center gap-1.5 h-10 px-4 rounded-full text-[13px] font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
               >
                 <User className="w-3.5 h-3.5 text-slate-600" />
                 <span>Entrar</span>

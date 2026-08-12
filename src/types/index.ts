@@ -45,8 +45,15 @@ export interface SavedCheck {
   id?: string;
   userId: string;
   drugs: string[];
+  queryText?: string;               // texto original da busca
   foundInteractionsCount: number;
+  countsBySeverity?: {              // detalhamento por severidade
+    grave: number;
+    moderada: number;
+    leve: number;
+  };
   maxSeverity: SeverityLevel | 'Nenhuma';
+  provider?: string;                // 'openai' | 'gemini' | 'local'
   notes?: string;
   createdAt: string;
 }
