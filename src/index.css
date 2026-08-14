@@ -48,6 +48,12 @@
   }
 }
 
+/* Custom keyframes usadas por modais e overlays */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @layer utilities {
   .safe-top {
     padding-top: env(safe-area-inset-top);

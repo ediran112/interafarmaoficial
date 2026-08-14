@@ -23,6 +23,7 @@ import { DrugMonograph } from './components/DrugMonograph';
 import { PrescriptionRewriteModal } from './components/PrescriptionRewriteModal';
 import { ClinicalDisclaimer } from './components/ClinicalDisclaimer';
 import { PolypharmacySummary, type SeverityFilter } from './components/PolypharmacySummary';
+import { LoadingOverlay } from './components/LoadingOverlay';
 import { Pill, AlertCircle, RefreshCw, Search, Zap, Printer, Copy, Check, BookmarkCheck } from 'lucide-react';
 
 export default function App() {
@@ -51,6 +52,14 @@ export default function App() {
   const [rewritePair, setRewritePair] = useState<[string, string] | null>(null);
   const [isRewriteOpen, setIsRewriteOpen] = useState(false);
   const handleSuggestRewrite = (drugA: string, drugB: string) => {
+    if (!currentUserRef.current) {
+      setPendingAction({ kind: 'rewrite', drugA, drugB });
+      setAuthGateMessage(
+        'Cadastre-se ou entre para gerar prescrição alternativa segura.'
+      );
+      setIsAuthModalOpen(true);
+      return;
+    }
     setRewritePair([drugA, drugB]);
     setIsRewriteOpen(true);
   };
@@ -167,6 +176,16 @@ export default function App() {
 
   // Trigger search with loading and real-time backend AI query
   const handleExecuteSearch = async (payload: { term: string; drugs?: string[] }) => {
+    // Auth gate: usuários não cadastrados veem o modal de cadastro antes de consultar
+    if (!currentUserRef.current) {
+      setPendingSearch(payload);
+      setAuthGateMessage(
+        'Cadastre-se ou entre para consultar as interações medicamentosas em tempo real.'
+      );
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     const term = payload.term;
     const drugs = payload.drugs && payload.drugs.length > 0 ? payload.drugs : undefined;
 
@@ -261,6 +280,17 @@ export default function App() {
     currentUserRef.current = currentUser;
   }, [currentUser]);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authGateMessage, setAuthGateMessage] = useState<string | undefined>(undefined);
+
+  // Pending action to execute after user logs in (auth gate)
+  const [pendingSearch, setPendingSearch] = useState<{ term: string; drugs?: string[] } | null>(
+    null
+  );
+  const [pendingAction, setPendingAction] = useState<{
+    kind: 'rewrite' | 'advice';
+    drugA: string;
+    drugB: string;
+  } | null>(null);
 
   // Saved checks
   const [savedChecks, setSavedChecks] = useState<SavedCheck[]>([]);
@@ -371,8 +401,16 @@ export default function App() {
     setSavedChecks(savedChecks.filter(c => c.id !== id));
   };
 
-  // Handle opening AI Advisor
+  // Handle opening AI Advisor (gated by auth)
   const handleOpenAI = (drugA: string = '', drugB: string = '') => {
+    if (!currentUserRef.current) {
+      setPendingAction({ kind: 'advice', drugA, drugB });
+      setAuthGateMessage(
+        'Cadastre-se ou entre para obter orientação farmacêutica personalizada.'
+      );
+      setIsAuthModalOpen(true);
+      return;
+    }
     setAiInitialDrugA(drugA);
     setAiInitialDrugB(drugB);
     setIsAIModalOpen(true);
@@ -765,9 +803,38 @@ export default function App() {
       {/* MODALS */}
       <AuthModal
         isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setAuthGateMessage(undefined);
+          setPendingSearch(null);
+          setPendingAction(null);
+        }}
+        gateMessage={authGateMessage}
         onAuthSuccess={(user) => {
           setCurrentUser(user);
+          currentUserRef.current = user; // sync ref imediatamente
+          setAuthGateMessage(undefined);
+
+          // Executar acao pendente que causou o gate
+          const search = pendingSearch;
+          const action = pendingAction;
+          setPendingSearch(null);
+          setPendingAction(null);
+
+          setTimeout(() => {
+            if (search) {
+              handleExecuteSearch(search);
+            } else if (action) {
+              if (action.kind === 'rewrite') {
+                setRewritePair([action.drugA, action.drugB]);
+                setIsRewriteOpen(true);
+              } else if (action.kind === 'advice') {
+                setAiInitialDrugA(action.drugA);
+                setAiInitialDrugB(action.drugB);
+                setIsAIModalOpen(true);
+              }
+            }
+          }, 250); // pequeno delay para o modal fechar suavemente
         }}
       />
 
@@ -790,6 +857,13 @@ export default function App() {
             : []
         }
         conflictingPair={rewritePair}
+      />
+
+      {/* Loading overlay animado — profissional, centralizado, com etapas */}
+      <LoadingOverlay
+        isOpen={isSearchLoading}
+        drugs={currentDrugList.length > 0 ? currentDrugList : searchExecutedTerm ? [searchExecutedTerm] : []}
+        mode="interactions"
       />
 
       {/* Toast discreto */}

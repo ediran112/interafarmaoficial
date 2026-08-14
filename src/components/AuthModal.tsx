@@ -13,10 +13,16 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAuthSuccess: (user: UserProfile) => void;
+  gateMessage?: string; // mensagem contextual quando o modal foi aberto por auth gate
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuccess }) => {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+export const AuthModal: React.FC<AuthModalProps> = ({
+  isOpen,
+  onClose,
+  onAuthSuccess,
+  gateMessage,
+}) => {
+  const [mode, setMode] = useState<'login' | 'register'>(gateMessage ? 'register' : 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -174,6 +180,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
             Cadastrar
           </button>
         </div>
+
+        {/* Gate message — quando o modal foi aberto por tentativa de consulta */}
+        {gateMessage && (
+          <div className="px-5 sm:px-6 pt-4">
+            <div className="p-3 rounded-xl bg-lime-50 border border-lime-200 text-lime-900 text-[13px] font-medium flex items-start gap-2">
+              <Sparkle className="w-4 h-4 text-lime-700 shrink-0 mt-0.5" />
+              <span>{gateMessage}</span>
+            </div>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
