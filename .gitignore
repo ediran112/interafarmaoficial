@@ -6,3 +6,11 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Firebase Admin service account key — NUNCA commitar (permite acesso total ao Firestore)
+firebase-admin-key.json
+firebase-admin-*.json
+serviceAccountKey.json
+
+# Ferramentas locais nao relacionadas ao projeto
+upscaler_python/

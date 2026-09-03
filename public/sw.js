@@ -82,3 +82,56 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
+
+// ============================================================================
+// Web Push — exibe notificações mesmo com app fechado
+// ============================================================================
+
+self.addEventListener('push', (event) => {
+  let payload = {
+    title: 'Interafarma',
+    body: '',
+    url: '/',
+    tag: 'interafarma-default',
+  };
+  if (event.data) {
+    try {
+      payload = { ...payload, ...event.data.json() };
+    } catch {
+      payload.body = event.data.text();
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: '/icon.svg',
+      badge: '/icon.svg',
+      tag: payload.tag,
+      data: { url: payload.url },
+      requireInteraction: false,
+      vibrate: [80, 40, 80],
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((wins) => {
+        // Se ha janela aberta do app, foca; se nao, abre nova
+        for (const win of wins) {
+          if (win.url.includes(self.location.origin) && 'focus' in win) {
+            win.navigate(targetUrl).catch(() => {});
+            return win.focus();
+          }
+        }
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(targetUrl);
+        }
+      })
+  );
+});

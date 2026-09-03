@@ -443,6 +443,7 @@ export default function App() {
         onOpenInstall={() => setIsInstallModalOpen(true)}
         showInstallButton={showInstallButton}
         savedCount={savedChecks.length}
+        onFlashToast={flashToast}
       />
 
       {/* AVISO CLINICO PERMANENTE */}

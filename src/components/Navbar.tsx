@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pill, User, LogOut, BookmarkCheck, Download } from 'lucide-react';
 import { UserProfile } from '../types';
+import { NotificationsToggle } from './NotificationsToggle';
 
 interface NavbarProps {
   activeTab: 'search' | 'checker' | 'guide' | 'saved';
@@ -12,6 +13,7 @@ interface NavbarProps {
   onOpenInstall?: () => void;
   showInstallButton?: boolean;
   savedCount: number;
+  onFlashToast?: (msg: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -23,6 +25,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenInstall,
   showInstallButton = false,
   savedCount,
+  onFlashToast,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-slate-200/80 safe-top">
@@ -47,6 +50,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <div className="flex items-center gap-2">
+            {currentUser && (
+              <NotificationsToggle userId={currentUser.uid} onFlash={onFlashToast} />
+            )}
+
             {showInstallButton && onOpenInstall && (
               <button
                 type="button"

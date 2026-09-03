@@ -34,6 +34,22 @@ service cloud.firestore {
                     && resource.data.userId == request.auth.uid;
     }
 
+    // Subscriptions de push notification — cada usuario so cria/le/deleta as suas.
+    // O admin (via firebase-admin SDK) pode ler todas para fazer broadcast.
+    match /push_subscriptions/{subId} {
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.keys().hasAll(['userId', 'endpoint', 'keys']);
+
+      allow read: if request.auth != null
+                  && resource.data.userId == request.auth.uid;
+
+      allow delete: if request.auth != null
+                    && resource.data.userId == request.auth.uid;
+
+      allow update: if false; // subscriptions sao imutaveis (delete + create se renovar)
+    }
+
     // Bloqueia qualquer coleção não declarada acima.
     match /{document=**} {
       allow read, write: if false;
