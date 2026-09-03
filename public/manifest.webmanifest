@@ -1,0 +1,39 @@
+{
+  "name": "Interafarma — Interações Medicamentosas",
+  "short_name": "Interafarma",
+  "description": "Plataforma clínica de análise de interações medicamentosas com detalhamento farmacológico completo, monografia técnica e recomposição de prescrição.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "browser"],
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "categories": ["medical", "health", "productivity", "education"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nova consulta",
+      "short_name": "Consulta",
+      "description": "Iniciar nova busca de interações",
+      "url": "/?action=new",
+      "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ],
+  "prefer_related_applications": false
+}

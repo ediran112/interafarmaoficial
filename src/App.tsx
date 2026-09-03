@@ -24,6 +24,8 @@ import { PrescriptionRewriteModal } from './components/PrescriptionRewriteModal'
 import { ClinicalDisclaimer } from './components/ClinicalDisclaimer';
 import { PolypharmacySummary, type SeverityFilter } from './components/PolypharmacySummary';
 import { LoadingOverlay } from './components/LoadingOverlay';
+import { InstallAppModal } from './components/InstallAppModal';
+import { useInstallPrompt } from './lib/pwa';
 import { Pill, AlertCircle, RefreshCw, Search, Zap, Printer, Copy, Check, BookmarkCheck } from 'lucide-react';
 
 export default function App() {
@@ -302,6 +304,17 @@ export default function App() {
     setTimeout(() => setToast(null), 2500);
   };
 
+  // PWA install prompt
+  const {
+    platform: installPlatform,
+    isInstalled,
+    canInstallNatively,
+    wasPreviouslyPrompted,
+  } = useInstallPrompt();
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const showInstallButton =
+    !isInstalled && (installPlatform === 'installable' || installPlatform === 'ios');
+
   // AI Modal state
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [aiInitialDrugA, setAiInitialDrugA] = useState('');
@@ -427,6 +440,8 @@ export default function App() {
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
         onOpenAIModal={() => handleOpenAI()}
+        onOpenInstall={() => setIsInstallModalOpen(true)}
+        showInstallButton={showInstallButton}
         savedCount={savedChecks.length}
       />
 
@@ -834,7 +849,17 @@ export default function App() {
                 setIsAIModalOpen(true);
               }
             }
-          }, 250); // pequeno delay para o modal fechar suavemente
+          }, 250);
+
+          // Convida a instalar o PWA — uma vez por usuario, apos login,
+          // se dispositivo suporta e ainda nao pediu.
+          if (
+            !isInstalled &&
+            !wasPreviouslyPrompted() &&
+            (canInstallNatively || installPlatform === 'ios')
+          ) {
+            setTimeout(() => setIsInstallModalOpen(true), 1200);
+          }
         }}
       />
 
@@ -864,6 +889,12 @@ export default function App() {
         isOpen={isSearchLoading}
         drugs={currentDrugList.length > 0 ? currentDrugList : searchExecutedTerm ? [searchExecutedTerm] : []}
         mode="interactions"
+      />
+
+      {/* Popup de instalacao do PWA */}
+      <InstallAppModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
       />
 
       {/* Toast discreto */}

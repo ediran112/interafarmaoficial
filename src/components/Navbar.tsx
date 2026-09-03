@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pill, User, LogOut, BookmarkCheck } from 'lucide-react';
+import { Pill, User, LogOut, BookmarkCheck, Download } from 'lucide-react';
 import { UserProfile } from '../types';
 
 interface NavbarProps {
@@ -9,6 +9,8 @@ interface NavbarProps {
   onOpenAuth: () => void;
   onLogout: () => void;
   onOpenAIModal: () => void;
+  onOpenInstall?: () => void;
+  showInstallButton?: boolean;
   savedCount: number;
 }
 
@@ -18,6 +20,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
   onOpenAuth,
   onLogout,
+  onOpenInstall,
+  showInstallButton = false,
   savedCount,
 }) => {
   return (
@@ -43,6 +47,19 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <div className="flex items-center gap-2">
+            {showInstallButton && onOpenInstall && (
+              <button
+                type="button"
+                onClick={onOpenInstall}
+                title="Instalar aplicativo"
+                aria-label="Instalar aplicativo"
+                className="inline-flex items-center gap-1.5 h-10 px-3 rounded-full text-[13px] font-semibold bg-lime-400 hover:bg-lime-300 text-slate-950 transition-colors cursor-pointer shadow-2xs"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Instalar</span>
+              </button>
+            )}
+
             {currentUser && (
               <button
                 type="button"
