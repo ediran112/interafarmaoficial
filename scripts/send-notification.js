@@ -103,9 +103,10 @@ if (!existsSync(KEY_FILE)) {
 // -------------------------------------------------------------------
 // Load libs & init
 // -------------------------------------------------------------------
-let admin, webPush;
+let adminApp, adminFirestore, webPush;
 try {
-  admin = (await import('firebase-admin')).default;
+  adminApp = await import('firebase-admin/app');
+  adminFirestore = await import('firebase-admin/firestore');
   webPush = (await import('web-push')).default;
 } catch (err) {
   console.error('\n❌ Dependências faltando. Execute:');
@@ -114,10 +115,32 @@ try {
 }
 
 const serviceAccount = JSON.parse(readFileSync(KEY_FILE, 'utf8'));
-if (!admin.apps.length) {
-  admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+
+// Le o database ID customizado do mesmo arquivo de config que o frontend usa,
+// para bater com o banco onde os dados sao gravados.
+let firestoreDbId = null;
+const configFile = resolve(process.cwd(), 'firebase-applet-config.json');
+if (existsSync(configFile)) {
+  try {
+    const config = JSON.parse(readFileSync(configFile, 'utf8'));
+    if (config.firestoreDatabaseId) firestoreDbId = config.firestoreDatabaseId;
+  } catch {}
 }
-const db = admin.firestore();
+// Override via env var se preferir
+if (process.env.FIRESTORE_DATABASE_ID) firestoreDbId = process.env.FIRESTORE_DATABASE_ID;
+
+const app =
+  adminApp.getApps().length > 0
+    ? adminApp.getApp()
+    : adminApp.initializeApp({ credential: adminApp.cert(serviceAccount) });
+
+const db = firestoreDbId
+  ? adminFirestore.getFirestore(app, firestoreDbId)
+  : adminFirestore.getFirestore(app);
+
+if (firestoreDbId) {
+  console.log(`🗄   Firestore: database "${firestoreDbId}"`);
+}
 
 webPush.setVapidDetails(
   process.env.VAPID_SUBJECT || 'mailto:admin@interafarma.app',
